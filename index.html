@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Kalkulator Zrzutu Pro v4.6.1</title>
+    
+    <!-- DYNAMICZNY MANIFEST PWA -->
+    <link rel="manifest" id="dynamic-manifest">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Zrzut Pro">
+    <meta name="theme-color" content="#121212" id="meta-theme-color">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%236366f1'/><path d='M30 50 L50 70 L70 30' stroke='white' stroke-width='10' fill='none'/></svg>">
+
+    <!-- Silnik i biblioteki -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class', theme: { extend: {} } }
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; margin: 0; overflow-x: hidden; transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1); overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; }
+        
+        /* BLUR I SZKŁO */
+        .ios-blur { backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
+        .glass-header { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid rgba(150, 150, 150, 0.1); }
+        
+        /* SCROLLBAR */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* LOADER */
+        #loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #121212; color: #fff; z-index: 1000; transition: opacity 0.5s ease; }
+
+        /* ANIMACJE */
+        .spring-transform { transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.5s ease, opacity 0.5s ease, background-color 0.5s ease, border-color 0.5s ease; }
+        
+        @keyframes slideUpFade { 0% { opacity: 0; transform: translateY(30px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+        .animate-list-item { animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        .animate-float { animation: float 5s ease-in-out infinite; }
+
+        @keyframes pulseRing { 0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(255,255,255,0.4); } 70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255,255,255,0); } 100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
+        .animate-pulse-ring { animation: pulseRing 2.5s infinite cubic-bezier(0.215, 0.61, 0.355, 1); }
+        
+        @keyframes liquidFlow { 0% { background-position: 200% center; } 100% { background-position: -200% center; } }
+        .liquid-bar { background-image: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0) 100%); background-size: 200% auto; animation: liquidFlow 2s linear infinite; }
+
+        @keyframes ambientSpin { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(1.15); } 100% { transform: rotate(360deg) scale(1); } }
+        .ambient-spin { animation: ambientSpin 20s linear infinite; }
+        
+        @keyframes heartbeat { 0% { transform: scale(1); opacity: 0.1; } 50% { transform: scale(1.1); opacity: 0.25; } 100% { transform: scale(1); opacity: 0.1; } }
+        .ambient-heartbeat { animation: heartbeat 2s ease-in-out infinite; }
+
+        .squash-bounce:active { animation: squash 0.3s ease; }
+        @keyframes squash { 0% { transform: scale(1); } 40% { transform: scaleX(1.1) scaleY(0.9); } 100% { transform: scale(1); } }
+
+        .spin-slow { animation: spin 4s linear infinite; transform-origin: center; display: inline-block; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        .icon-pop { animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform-origin: center; display: inline-block; }
+        @keyframes popIn { 0% { transform: scale(0) rotate(-45deg); opacity: 0; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+        
+        .gyro-layer { transition: transform 0.1s ease-out; will-change: transform; }
+        .gyro-card { transition: transform 0.15s ease-out; will-change: transform; transform-style: preserve-3d; }
+    </style>
+</head>
+<body>
+    <div id="loader">
+        <div class="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <div class="text-xs font-black uppercase tracking-widest opacity-50">Inicjalizacja Platformy...</div>
+    </div>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- AUDIO ENGINE ---
+        const AudioEngine = {
+            ctx: null,
+            init() { 
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if(AudioContext) this.ctx = new AudioContext();
+                }
+                if(this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+            },
+            playThud() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.frequency.setValueAtTime(100, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(10, this.ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.15);
+            },
+            playLever() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.frequency.setValueAtTime(80, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(20, this.ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.2);
+            },
+            playHiss() {
+                if (!this.ctx) return;
+                const bufferSize = this.ctx.sampleRate * 0.4;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'highpass'; filter.frequency.value = 1500;
+                const gain = this.ctx.createGain();
+                noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+                noise.start();
+            }
+        };
+
+        const Icon = ({ name, size = 20, className = "", color = "currentColor" }) => {
+            const containerRef = useRef(null);
+            useEffect(() => {
+                if (containerRef.current && window.lucide) {
+                    containerRef.current.innerHTML = `<i data-lucide="${name}" class="${className}" style="width: ${size}px; height: ${size}px; color: ${color};"></i>`;
+                    window.lucide.createIcons({ root: containerRef.current });
+                }
+            }, [name, size, className, color]);
+            return <div className="inline-block leading-none"><span ref={containerRef} style={{ display: 'contents' }} /></div>;
+        };
+
+        function App() {
+            const VERSION = "4.6.1";
+
+            const getInitial = (key, fallback) => {
+                try {
+                    const saved = localStorage.getItem(key);
+                    return saved !== null ? saved : fallback;
+                } catch (e) { return fallback; }
+            };
+
+            const [baseMat, setBaseMat] = useState(getInitial('baseMat', ''));
+            const [baseMatAfter, setBaseMatAfter] = useState(getInitial('baseMatAfter', ''));
+            const [baseDrop, setBaseDrop] = useState(getInitial('baseDrop', ''));
+            const [baseSpd, setBaseSpd] = useState(getInitial('baseSpd', ''));
+            const [baseDur, setBaseDur] = useState(getInitial('baseDur', '17'));
+            const [isDarkMode, setIsDarkMode] = useState(getInitial('darkMode', 'true') === 'true');
+            const [theme, setTheme] = useState(getInitial('theme', 'indigo')); 
+            const [osStyle, setOsStyle] = useState(getInitial('osStyle', 'ios')); 
+            const [hapticsEnabled, setHapticsEnabled] = useState(getInitial('hapticsEnabled', 'true') === 'true');
+            
+            const [widgetsConfig, setWidgetsConfig] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('widgetsConfig');
+                    return saved ? JSON.parse(saved) : { progress: true, live: true, total: true, next: true, baseConfig: true };
+                } catch(e) { return { progress: true, live: true, total: true, next: true, baseConfig: true }; }
+            });
+
+            const [anchorTime, setAnchorTime] = useState(() => {
+                const saved = parseInt(getInitial('anchorTime', Date.now().toString()));
+                if (isNaN(saved) || Date.now() - saved > 14 * 60 * 60 * 1000) return Date.now();
+                return saved;
+            });
+            
+            const [overrides, setOverrides] = useState(() => {
+                try { const saved = localStorage.getItem('overrides'); return saved ? JSON.parse(saved) : {}; } catch(e) { return {}; }
+            });
+
+            const [accumulatedPause, setAccumulatedPause] = useState(() => parseFloat(getInitial('accumulatedPause', '0')) || 0);
+            const [currentPauseStart, setCurrentPauseStart] = useState(() => {
+                const val = getInitial('currentPauseStart', 'null');
+                return val !== 'null' ? parseFloat(val) : null;
+            });
+
+            const [showSettings, setShowSettings] = useState(false);
+            const [now, setNow] = useState(new Date());
+            const [expandedIndex, setExpandedIndex] = useState(null);
+            const [isScrolled, setIsScrolled] = useState(false);
+            const lastScrollY = useRef(0);
+            const [tilt, setTilt] = useState({ x: 0, y: 0, rotateX: 0, rotateY: 0 });
+            const [pauseAnimationKey, setPauseAnimationKey] = useState(0); 
+            const [themeAnimationKey, setThemeAnimationKey] = useState(0);
+
+            // --- ZAAWANSOWANE PALETY M3 vs iOS ---
+            const m3Palettes = useMemo(() => ({
+                indigo: { 
+                    primary: '#6366f1', 
+                    a_darkBg: '#0f0f17', a_darkCard: '#181824', a_lightBg: '#f2f2fa', a_lightCard: '#ffffff', a_darkBorder: '#272738', a_lightBorder: '#e2e2ec',
+                },
+                emerald: { 
+                    primary: '#10b981', 
+                    a_darkBg: '#08140f', a_darkCard: '#11241a', a_lightBg: '#f0fbf5', a_lightCard: '#ffffff', a_darkBorder: '#1c3d2c', a_lightBorder: '#d1f0e0',
+                },
+                rose: { 
+                    primary: '#f43f5e', 
+                    a_darkBg: '#1a0d11', a_darkCard: '#29141b', a_lightBg: '#fff5f7', a_lightCard: '#ffffff', a_darkBorder: '#47222e', a_lightBorder: '#fce3e8',
+                },
+                amber: { 
+                    primary: '#f59e0b', 
+                    a_darkBg: '#1a150a', a_darkCard: '#292110', a_lightBg: '#fffbf0', a_lightCard: '#ffffff', a_darkBorder: '#47391b', a_lightBorder: '#fbebc5',
+                }
+            }), []);
+
+            const palette = m3Palettes[theme] || m3Palettes.indigo;
+            const isIos = osStyle === 'ios';
+
+            // --- ENGINE STYLÓW PLATFORMY ---
+            const c = useMemo(() => {
+                const p = palette;
+                if (isIos) {
+                    const base = isDarkMode ? { 
+                        bg: '#000000', card: 'rgba(28,28,30,0.65)', text: '#FFFFFF', accent: p.primary, 
+                        border: 'rgba(255,255,255,0.15)', inputBg: 'rgba(255,255,255,0.1)', surface: 'rgba(255,255,255,0.05)', 
+                        muted: 'rgba(255,255,255,0.5)', headerBg: 'rgba(0,0,0,0.65)'
+                    } : { 
+                        bg: '#F2F2F7', card: 'rgba(255,255,255,0.7)', text: '#000000', accent: p.primary, 
+                        border: 'rgba(0,0,0,0.1)', inputBg: 'rgba(0,0,0,0.05)', surface: 'rgba(0,0,0,0.03)', 
+                        muted: 'rgba(0,0,0,0.5)', headerBg: 'rgba(242,242,247,0.65)'
+                    };
+                    return {
+                        ...base,
+                        blur: 'ios-blur', radius: 'rounded-[24px]', innerRadius: 'rounded-[16px]', btnRadius: 'rounded-[14px]',
+                        shadow: 'shadow-sm',
+                        cardClass: `rounded-[24px] ios-blur shadow-sm border transition-all`,
+                    };
+                } else {
+                    const base = isDarkMode ? { 
+                        bg: p.a_darkBg, card: p.a_darkCard, text: '#FFFFFF', accent: p.primary, 
+                        border: p.a_darkBorder, inputBg: 'rgba(0,0,0,0.25)', surface: 'rgba(255,255,255,0.05)', 
+                        muted: 'rgba(255,255,255,0.5)', headerBg: p.a_darkBg
+                    } : { 
+                        bg: p.a_lightBg, card: p.a_lightCard, text: '#111827', accent: p.primary, 
+                        border: p.a_lightBorder, inputBg: 'rgba(0,0,0,0.04)', surface: 'rgba(0,0,0,0.02)', 
+                        muted: 'rgba(0,0,0,0.6)', headerBg: p.a_lightBg
+                    };
+                    return {
+                        ...base,
+                        blur: '', radius: 'rounded-[32px]', innerRadius: 'rounded-[24px]', btnRadius: 'rounded-[20px]',
+                        shadow: 'shadow-lg',
+                        cardClass: `rounded-[32px] shadow-lg border transition-all`,
+                    };
+                }
+            }, [isDarkMode, isIos, palette]);
+
+            const modalInner = useMemo(() => isIos ? (isDarkMode ? '#1C1C1EE6' : '#FFFFFFE6') : c.card, [isIos, isDarkMode, c.card]);
+
+            // Inicjalizacja PWA
+            useEffect(() => {
+                const manifestData = {
+                    name: "Kalkulator Zrzutu",
+                    short_name: "Zrzut Pro",
+                    start_url: ".",
+                    display: "standalone",
+                    background_color: c.bg,
+                    theme_color: c.bg,
+                    icons: [{ src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%236366f1'/><path d='M30 50 L50 70 L70 30' stroke='white' stroke-width='10' fill='none'/></svg>", sizes: "192x192", type: "image/svg+xml" }]
+                };
+                const manifestBlob = new Blob([JSON.stringify(manifestData)], {type: 'application/json'});
+                const manifestUrl = URL.createObjectURL(manifestBlob);
+                const manifestElem = document.getElementById('dynamic-manifest');
+                if (manifestElem) manifestElem.href = manifestUrl;
+
+                if ('serviceWorker' in navigator) {
+                    // Ze względów bezpieczeństwa przeglądarki blokują rejestrację SW z adresów blob:.
+                    // Aby w pełni aktywować tryb offline (PWA), utwórz osobny plik sw.js na swoim serwerze i odkomentuj poniższą linię:
+                    // navigator.serviceWorker.register('./sw.js').catch(err => console.log('PWA SW błąd:', err));
+                }
+                return () => URL.revokeObjectURL(manifestUrl);
+            }, [c.bg]);
+
+            // Zabezpieczenie wibracji przed rzucaniem wyjątków
+            const hapticAction = (type = 'light') => {
+                if (!hapticsEnabled || typeof window === 'undefined' || !window.navigator?.vibrate) return;
+                try {
+                    if (type === 'tick') window.navigator.vibrate(2); 
+                    else if (type === 'light') window.navigator.vibrate(10);
+                    else if (type === 'medium') window.navigator.vibrate(30);
+                    else if (type === 'heavy') window.navigator.vibrate([30, 50, 30]);
+                } catch (e) {}
+            };
+
+            const togglePause = () => {
+                hapticAction('heavy');
+                AudioEngine.playLever();
+                setPauseAnimationKey(prev => prev + 1); 
+                if (currentPauseStart) {
+                    setAccumulatedPause(prev => prev + (Date.now() - currentPauseStart));
+                    setCurrentPauseStart(null);
+                } else {
+                    setCurrentPauseStart(Date.now());
+                }
+            };
+
+            const handleThemeToggle = () => {
+                hapticAction('light');
+                setThemeAnimationKey(prev => prev + 1); 
+                setIsDarkMode(!isDarkMode);
+            };
+
+            const handleOrientation = (e) => {
+                if (!e.gamma || !e.beta) return;
+                let x = Math.max(-50, Math.min(50, e.gamma));
+                let y = Math.max(-50, Math.min(50, e.beta - 45)); 
+                setTilt({ x: x * -3.5, y: y * -3.5, rotateX: y * 0.4, rotateY: x * 0.4 }); 
+            };
+
+            const unlockFeatures = () => {
+                AudioEngine.init();
+                window.addEventListener('deviceorientation', handleOrientation);
+            };
+
+            const adjustRecycling = (index, sign) => {
+                hapticAction('medium');
+                AudioEngine.playThud();
+                setOverrides(prev => {
+                    const ovr = prev[index] || {};
+                    let currentMat = parseFloat(baseMat);
+                    if (isNaN(currentMat)) currentMat = 0;
+                    if (index > 0 && !isNaN(parseFloat(baseMatAfter))) currentMat = parseFloat(baseMatAfter);
+                    if (ovr.mat !== undefined && ovr.mat !== '') currentMat = parseFloat(ovr.mat);
+                    const step = 70; 
+                    const newMat = Math.max(0, currentMat + (sign * step));
+                    return { ...prev, [index]: { ...ovr, mat: parseFloat(newMat.toFixed(2)).toString() } };
+                });
+            };
+
+            const hardReset = () => {
+                hapticAction('heavy');
+                if (confirm("Resetuj wszystkie dane i harmonogram?")) {
+                    localStorage.clear();
+                    window.location.reload();
+                }
+            };
+
+            const clearBaseValues = () => {
+                hapticAction('medium');
+                setBaseMat(''); setBaseMatAfter(''); setBaseDrop(''); setBaseSpd('');
+                setOverrides({});
+                setAnchorTime(Date.now());
+            };
+            
+            const handleForceStart = (index) => {
+                hapticAction('heavy');
+                AudioEngine.playHiss();
+                const targetDrop = schedule[index];
+                if (targetDrop) {
+                    const activePauseMs = currentPauseStart !== null ? (Date.now() - currentPauseStart) : 0;
+                    setAnchorTime(anchorTime + (Date.now() - targetDrop.start.getTime()) + activePauseMs);
+                    if (currentPauseStart !== null) setCurrentPauseStart(null);
+                }
+                setExpandedIndex(null);
+            };
+
+            useEffect(() => {
+                const handleScroll = () => {
+                    const currentScroll = window.scrollY;
+                    setIsScrolled(currentScroll > 15);
+                    if (Math.abs(currentScroll - lastScrollY.current) > 120) {
+                        hapticAction('tick');
+                        lastScrollY.current = currentScroll;
+                    }
+                };
+                window.addEventListener('scroll', handleScroll, { passive: true });
+                return () => window.removeEventListener('scroll', handleScroll);
+            }, [hapticsEnabled]); 
+
+            useEffect(() => {
+                localStorage.setItem('baseMat', baseMat);
+                localStorage.setItem('baseMatAfter', baseMatAfter);
+                localStorage.setItem('baseDrop', baseDrop);
+                localStorage.setItem('baseSpd', baseSpd);
+                localStorage.setItem('baseDur', baseDur);
+                localStorage.setItem('theme', theme);
+                localStorage.setItem('osStyle', osStyle);
+                localStorage.setItem('hapticsEnabled', String(hapticsEnabled));
+                localStorage.setItem('anchorTime', String(anchorTime));
+                localStorage.setItem('overrides', JSON.stringify(overrides));
+                localStorage.setItem('widgetsConfig', JSON.stringify(widgetsConfig));
+                localStorage.setItem('accumulatedPause', String(accumulatedPause));
+                localStorage.setItem('currentPauseStart', currentPauseStart !== null ? String(currentPauseStart) : 'null');
+                localStorage.setItem('darkMode', String(isDarkMode));
+
+                const metaThemeColor = document.getElementById('meta-theme-color');
+                if (isDarkMode) {
+                    document.documentElement.classList.add('dark');
+                    if(metaThemeColor) metaThemeColor.setAttribute('content', c.bg);
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    if(metaThemeColor) metaThemeColor.setAttribute('content', c.bg);
+                }
+            }, [baseMat, baseMatAfter, baseDrop, baseSpd, baseDur, isDarkMode, theme, osStyle, hapticsEnabled, anchorTime, overrides, widgetsConfig, accumulatedPause, currentPauseStart, c]);
+
+            useEffect(() => {
+                const timer = setInterval(() => setNow(new Date()), 1000);
+                return () => clearInterval(timer);
+            }, []);
+
+            useEffect(() => {
+                const loader = document.getElementById('loader');
+                if (loader) setTimeout(() => { loader.style.opacity = '0'; setTimeout(() => loader.style.display = 'none', 500); }, 500);
+            }, []);
+
+            const schedule = useMemo(() => {
+                const bMat = parseFloat(baseMat); 
+                const bMatAfter = parseFloat(baseMatAfter);
+                const bDrop = parseFloat(baseDrop); 
+                const bSpd = parseFloat(baseSpd);
+                if (isNaN(bMat) || isNaN(bDrop) || isNaN(bSpd)) return [];
+                
+                const items = [];
+                const activePauseMs = currentPauseStart !== null ? (now.getTime() - currentPauseStart) : 0;
+                let currentTime = anchorTime + accumulatedPause + activePauseMs;
+                
+                for (let i = 0; i < 30; i++) {
+                    const ovr = overrides[i] || {};
+                    let defaultMatForThisDrop = bMat;
+                    if (i > 0 && !isNaN(bMatAfter)) defaultMatForThisDrop = bMatAfter;
+                    
+                    const cMat = (ovr.mat !== undefined && ovr.mat !== '') ? parseFloat(ovr.mat) : defaultMatForThisDrop;
+                    const cDrop = (ovr.drop !== undefined && ovr.drop !== '') ? parseFloat(ovr.drop) : bDrop;
+                    const cSpd = (ovr.spd !== undefined && ovr.spd !== '') ? parseFloat(ovr.spd) : bSpd;
+                    const cDur = parseFloat(ovr.dur || baseDur) || 17;
+                    const delay = parseFloat(ovr.delay || 0);
+                    
+                    const waitTime = Math.round((Math.abs(cMat - cDrop) / (cSpd || 1)) * 60);
+                    const start = new Date(currentTime + (waitTime + delay) * 60000);
+                    const end = new Date(start.getTime() + cDur * 60000);
+                    
+                    items.push({ 
+                        index: i, mat: cMat, drop: cDrop, spd: cSpd, dur: cDur, start, end, 
+                        startStr: start.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }), 
+                        endStr: end.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) 
+                    });
+                    currentTime = end.getTime();
+                }
+                return items;
+            }, [baseMat, baseMatAfter, baseDrop, baseSpd, baseDur, overrides, anchorTime, accumulatedPause, currentPauseStart, now]);
+
+            const liveData = useMemo(() => {
+                if (!schedule.length) return { isValid: false };
+                const h = now.getHours();
+                const shiftStart = new Date(now); shiftStart.setMinutes(0); shiftStart.setSeconds(0);
+                if (h >= 7 && h < 19) shiftStart.setHours(7); else { shiftStart.setHours(19); if (h < 7) shiftStart.setDate(shiftStart.getDate() - 1); }
+                const shiftEnd = new Date(shiftStart); shiftEnd.setHours(shiftEnd.getHours() + 12);
+                
+                const progress = Math.max(0, Math.min(100, ((now - shiftStart) / (shiftEnd - shiftStart)) * 100));
+                const displayItem = schedule.find(s => now <= s.end) || null; 
+                const currentActive = displayItem && now >= displayItem.start ? displayItem : null;
+                const nextUpcoming = displayItem ? schedule[displayItem.index + 1] : null;
+                const shiftDrops = schedule.filter(s => s.start >= now && s.start < shiftEnd);
+                const lastDropInShift = shiftDrops.length > 0 ? shiftDrops[shiftDrops.length - 1].startStr : null;
+                
+                return { isValid: true, displayItem, active: currentActive, next: nextUpcoming, progress, remainingInShift: shiftDrops.length, lastDropInShift };
+            }, [schedule, now]);
+
+            function formatLeft(ms) {
+                const s = Math.floor(ms / 1000); if (s < 0) return "0m 00s";
+                const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); const sec = s % 60;
+                return h > 0 ? `${h}g ${m}m` : `${m}m ${String(sec).padStart(2, '0')}s`;
+            }
+
+            return (
+                <div onClick={unlockFeatures} onTouchStart={unlockFeatures} className="min-h-screen flex flex-col items-center pb-32 transition-colors duration-700" style={{ backgroundColor: c.bg, color: c.text }}>
+                    
+                    {/* TOP STATUS BAR */}
+                    <div className={`w-full flex flex-col items-center sticky top-0 z-50 transition-all duration-300 ${isScrolled ? c.blur : ''}`} style={{ backgroundColor: isScrolled ? c.headerBg : 'transparent', paddingTop: 'env(safe-area-inset-top)' }}>
+                        {liveData.isValid && widgetsConfig.progress && (
+                            <div className="w-full h-1.5 relative overflow-hidden" style={{ backgroundColor: c.surface }}>
+                                <div className="h-full transition-all duration-1000 rounded-r-full relative" style={{ width: `${liveData.progress}%`, backgroundColor: c.accent }}>
+                                    <div className="absolute inset-0 liquid-bar opacity-50"></div>
+                                </div>
+                            </div>
+                        )}
+                        <div className={`w-full max-w-md flex justify-between items-center px-6 transition-all duration-300 ${isScrolled ? 'py-3' : 'py-5'}`}>
+                            <div className="flex flex-col">
+                                <h1 className="text-xl font-black tracking-tighter leading-none">Zrzut Pro</h1>
+                                <span className="text-[8px] font-black uppercase opacity-30 mt-1 tracking-widest">v{VERSION}</span>
+                            </div>
+                            {liveData.isValid && (
+                                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full shadow-sm transition-all squash-bounce ${c.blur}`} style={{ backgroundColor: c.surface }}>
+                                    {currentPauseStart === null ? <div className="w-2 h-2 rounded-full animate-pulse-ring" style={{ backgroundColor: c.accent }} /> : <div className="w-2 h-2 rounded-full bg-amber-500" />}
+                                    <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: currentPauseStart !== null ? '#f59e0b' : c.accent }}>
+                                        {liveData.progress.toFixed(0)}% Zmiany
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="w-full max-w-md pt-2 space-y-6">
+                        
+                        {/* WIDŻET LIVE Z AMBIENTEM */}
+                        {liveData.isValid && widgetsConfig.live && (
+                            <div className="px-4">
+                                <div className={`p-8 relative overflow-hidden flex flex-col items-center justify-center gyro-card ${c.cardClass} z-10`} 
+                                     style={{ backgroundColor: c.card, borderColor: currentPauseStart !== null ? '#f59e0b50' : c.border, transform: `rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg)` }}>
+                                    
+                                    {/* TŁA AMBIENTOWE */}
+                                    <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden" style={{ borderRadius: 'inherit' }}>
+                                        <div className={`absolute w-[150%] h-[150%] left-[-25%] top-[-25%] rounded-full opacity-20 blur-[60px] transition-colors duration-1000 ${currentPauseStart !== null ? 'ambient-heartbeat' : 'ambient-spin'}`} 
+                                             style={{ background: `radial-gradient(circle at center, ${currentPauseStart !== null ? '#f59e0b' : c.accent} 0%, transparent 70%)`, transform: `translate(${tilt.x}px, ${tilt.y}px)` }}></div>
+                                    </div>
+
+                                    {currentPauseStart !== null && (
+                                        <div className="absolute inset-0 opacity-20" style={{ background: 'repeating-linear-gradient(45deg, #f59e0b, #f59e0b 15px, transparent 15px, transparent 30px)'}} />
+                                    )}
+
+                                    <div className="flex flex-col items-center z-10 relative">
+                                        <span className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-1.5" style={{ color: currentPauseStart !== null ? '#f59e0b' : c.accent }}>
+                                            <Icon name={currentPauseStart !== null ? "pause-circle" : "activity"} size={14} />
+                                            {currentPauseStart !== null ? 'LINIA ZATRZYMANA' : 'OPERACJA LIVE'}
+                                        </span>
+                                        <h2 className={`text-7xl font-black tracking-tighter tabular-nums leading-none ${currentPauseStart === null ? 'animate-float' : ''}`} style={{ color: currentPauseStart !== null ? '#f59e0b' : c.text }}>
+                                            {liveData.displayItem ? (now >= liveData.displayItem.start ? formatLeft(liveData.displayItem.end - now) : formatLeft(liveData.displayItem.start - now)) : '--'}
+                                        </h2>
+                                        <div className="flex items-center gap-2 mt-4">
+                                            <span className={`px-2.5 py-1 text-[9px] font-black shadow-sm ${c.btnRadius}`} style={{ backgroundColor: c.inputBg, color: c.text }}>#{liveData.displayItem?.index + 1}</span>
+                                            <span className="text-[9px] font-black uppercase tracking-widest opacity-40">Kolejna akcja</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PRZYCISK PAUZY (DYNAMICZNY) */}
+                        <div className="px-4">
+                            <button onClick={togglePause} className={`w-full p-5 flex items-center justify-center gap-3 font-black uppercase tracking-widest text-[11px] transition-all squash-bounce ${c.radius} border`} style={{ backgroundColor: currentPauseStart !== null ? '#f59e0b' : c.card, borderColor: currentPauseStart !== null ? '#d97706' : c.border, color: currentPauseStart !== null ? '#fff' : c.text, boxShadow: c.shadow }}>
+                                <div className="icon-pop" key={pauseAnimationKey}><Icon name={currentPauseStart !== null ? "play" : "pause-circle"} size={22} /></div>
+                                {currentPauseStart !== null ? "Wznów pracę" : "Zatrzymaj Linię"}
+                            </button>
+                        </div>
+
+                        {/* DODATKOWE WIDŻETY */}
+                        <div className="px-4 grid grid-cols-2 gap-4">
+                            {widgetsConfig.total && (
+                                <div className={`p-5 flex flex-col justify-between spring-transform ${c.cardClass}`} style={{ backgroundColor: c.card, borderColor: c.border }}>
+                                    <Icon name="layers" size={24} style={{ color: c.accent }} />
+                                    <div className="mt-4">
+                                        <span className="text-[10px] font-black uppercase opacity-40 block tracking-widest mb-1">Do końca</span>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-4xl font-black tracking-tighter tabular-nums leading-none">{liveData.remainingInShift}</span>
+                                            {liveData.lastDropInShift && <span className="text-[9px] font-bold opacity-40 uppercase">OST: {liveData.lastDropInShift}</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            {widgetsConfig.next && (
+                                <div className={`p-5 flex flex-col justify-between spring-transform ${c.cardClass}`} style={{ backgroundColor: c.card, borderColor: c.border }}>
+                                    <Icon name="clock" size={24} style={{ color: c.accent }} />
+                                    <div className="mt-4">
+                                        <span className="text-[10px] font-black uppercase opacity-40 block tracking-widest mb-1">Następny</span>
+                                        <span className="text-4xl font-black tracking-tighter tabular-nums leading-none">{liveData.next?.startStr || '--:--'}</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* KONFIGURACJA BAZOWA */}
+                        {widgetsConfig.baseConfig && (
+                            <div className={`p-7 mx-4 ${c.cardClass}`} style={{ backgroundColor: c.card, borderColor: c.border }}>
+                                <div className="flex justify-between items-center mb-6 px-1">
+                                    <h2 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-30 flex items-center gap-2">
+                                        <Icon name="database" size={12}/> Baza Danych
+                                    </h2>
+                                    <button onClick={clearBaseValues} className="p-3 rounded-full bg-red-500/10 text-red-500/60 hover:text-red-500 transition-all squash-bounce">
+                                        <Icon name="trash-2" size={18} />
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {[ 
+                                        { l: 'Mat. (kg)', v: baseMat, s: setBaseMat, i: 'package' }, 
+                                        { l: 'Po (kg)', v: baseMatAfter, s: setBaseMatAfter, i: 'package-plus' }, 
+                                        { l: 'Zrzut', v: baseDrop, s: setBaseDrop, i: 'target' }, 
+                                        { l: 'Prędkość', v: baseSpd, s: setBaseSpd, i: 'gauge' } 
+                                    ].map((f, idx) => (
+                                        <div key={idx} className={`p-4 ${c.innerRadius}`} style={{ backgroundColor: c.inputBg }}>
+                                            <label className="text-[9px] font-bold uppercase tracking-widest opacity-40 flex items-center gap-1.5 mb-2"><Icon name={f.i} size={11}/> {f.l}</label>
+                                            <input type="number" inputMode="decimal" value={f.v} onChange={e => { f.s(e.target.value); setAnchorTime(Date.now()); }} className="w-full bg-transparent text-2xl font-black outline-none tabular-nums" style={{ color: c.text }} placeholder="0" />
+                                        </div>
+                                    ))}
+                                    <div className={`col-span-2 p-4 text-center ${c.innerRadius}`} style={{ backgroundColor: c.inputBg }}>
+                                        <label className="text-[9px] font-bold uppercase tracking-widest opacity-40 flex items-center gap-1.5 mb-2 justify-center"><Icon name="hourglass" size={11}/> Trwanie sesji</label>
+                                        <input type="number" value={baseDur} onChange={e => { setBaseDur(e.target.value); setAnchorTime(Date.now()); }} className="w-full bg-transparent text-2xl font-black outline-none text-center" style={{ color: c.text }} />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* HARMONOGRAM */}
+                        <div className="px-6 space-y-5">
+                            {schedule.map((slot, i) => {
+                                const active = liveData.active?.index === i;
+                                const isExpanded = expandedIndex === i;
+                                const isPast = now > slot.end;
+                                
+                                return (
+                                    <div key={i} className={`spring-transform animate-list-item ${c.cardClass} ${active ? 'scale-[1.03] shadow-xl border-opacity-100' : 'opacity-80'}`} 
+                                         style={{ backgroundColor: c.card, borderColor: isExpanded || active ? c.accent : c.border, animationDelay: `${i * 0.05}s` }}>
+                                        <div className="p-6 cursor-pointer squash-bounce" onClick={() => setExpandedIndex(isExpanded ? null : i)}>
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <div className="text-[10px] font-black uppercase opacity-30 mb-1 flex items-center gap-2">
+                                                        #{i + 1} {active && <span className="px-2 py-0.5 rounded-full text-white animate-pulse" style={{ backgroundColor: c.accent }}>LIVE</span>}
+                                                    </div>
+                                                    <div className="text-3xl font-black tabular-nums tracking-tighter">{slot.startStr} <span className="opacity-15">→</span> {slot.endStr}</div>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <div className="flex flex-col items-end gap-1.5">
+                                                        <span className={`px-2.5 py-1 text-[10px] font-black ${c.btnRadius}`} style={{ backgroundColor: c.inputBg, color: c.accent }}>{slot.mat} kg</span>
+                                                        <span className="text-[10px] font-black opacity-40 tracking-widest">{slot.spd} spd</span>
+                                                    </div>
+                                                    {!isPast && !active && (
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleForceStart(i); }} 
+                                                            className={`p-3 shadow-sm hover:scale-105 active:scale-95 transition-transform ${c.btnRadius}`} 
+                                                            style={{ backgroundColor: c.accent, color: '#fff' }}
+                                                        >
+                                                            <Icon name="play" size={16} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {isExpanded && (
+                                            <div className={`p-6 border-t space-y-5`} style={{ borderColor: c.border, backgroundColor: isIos ? 'rgba(0,0,0,0.05)' : 'rgba(0,0,0,0.03)' }}>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    {[ { f: 'mat', l: 'Ilość' }, { f: 'drop', l: 'Zrzut' }, { f: 'spd', l: 'Prędkość' }, { f: 'dur', l: 'Czas' } ].map(ed => (
+                                                        <div key={ed.f} className={`p-3 ${c.innerRadius}`} style={{ backgroundColor: c.inputBg }}>
+                                                            <label className="text-[9px] font-bold uppercase opacity-40 mb-1 block">{ed.l}</label>
+                                                            <input type="number" placeholder={slot[ed.f]} onChange={e => setOverrides(prev => ({ ...prev, [i]: { ...(prev[i] || {}), [ed.f]: e.target.value } }))} className="bg-transparent w-full outline-none font-black text-lg" style={{ color: c.text }} />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => adjustRecycling(i, 1)} className={`flex-1 py-4 font-black text-[10px] uppercase bg-emerald-500/15 text-emerald-500 transition-all active:scale-95 shadow-sm ${c.btnRadius}`}>+ 70 kg</button>
+                                                    <button onClick={() => adjustRecycling(i, -1)} className={`flex-1 py-4 font-black text-[10px] uppercase bg-red-500/15 text-red-500 transition-all active:scale-95 shadow-sm ${c.btnRadius}`}>- 70 kg</button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* DOCK BAR */}
+                    <div className="fixed bottom-6 w-full max-w-md px-6 z-50">
+                        <div className={`flex justify-around items-center p-2 rounded-full border shadow-2xl transition-all ${c.blur}`} style={{ backgroundColor: c.card, borderColor: c.border }}>
+                            <button onClick={handleThemeToggle} className="p-4 rounded-full squash-bounce text-opacity-50 hover:text-opacity-100 transition-opacity"><div key={themeAnimationKey} className="icon-spin-flip"><Icon name={isDarkMode ? "sun" : "moon"} size={22}/></div></button>
+                            <button onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})} className="px-10 py-3.5 rounded-full font-black text-[11px] text-white uppercase tracking-[0.15em] shadow-lg shadow-indigo-500/20 squash-bounce transition-all active:translate-y-1" style={{ backgroundColor: c.accent }}>Góra</button>
+                            <button onClick={() => { hapticAction('light'); setShowSettings(true); }} className="p-4 rounded-full squash-bounce"><div className={showSettings ? "spin-slow" : ""}><Icon name="settings-2" size={22} /></div></button>
+                        </div>
+                    </div>
+
+                    {/* MODAL USTAWIEŃ Z MOŻLIWOŚCIĄ KLIKNIĘCIA W TŁO BY ZAMKNĄĆ */}
+                    {showSettings && (
+                        <div 
+                            className={`fixed inset-0 z-[100] flex items-end justify-center bg-black/70 animate-in fade-in duration-500 px-2 ${c.blur}`}
+                            onClick={() => setShowSettings(false)}
+                        >
+                            <div 
+                                className={`w-full max-w-md p-8 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar`} 
+                                style={{ backgroundColor: modalInner, borderRadius: isIos ? '32px 32px 0 0' : '40px 40px 0 0' }}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                
+                                <div className="flex justify-between items-center mb-10">
+                                    <h3 className="text-xl font-black tracking-tighter">Konfiguracja Systemu</h3>
+                                    <button onClick={() => setShowSettings(false)} className="p-3 rounded-full bg-black/10 dark:bg-white/10 hover:scale-110 transition-transform"><Icon name="x" size={26}/></button>
+                                </div>
+
+                                <div className="space-y-10">
+                                    {/* Widżety pulpitu */}
+                                    <section className="space-y-5">
+                                        <label className="text-[10px] font-black uppercase tracking-[0.25em] opacity-30">Pulpit Sterowniczy</label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {[
+                                                { id: 'live', label: 'Operacja LIVE', icon: 'activity' },
+                                                { id: 'total', label: 'Zrzuty do końca', icon: 'layers' },
+                                                { id: 'next', label: 'Następny Up', icon: 'clock' },
+                                                { id: 'baseConfig', label: 'Baza Danych', icon: 'database' }
+                                            ].map(w => (
+                                                <button key={w.id} onClick={() => setWidgetsConfig(prev => ({ ...prev, [w.id]: !prev[w.id] }))} className={`py-4 px-5 ${c.innerRadius} text-[10px] font-black transition-all flex flex-col gap-2 border ${widgetsConfig[w.id] ? 'text-white shadow-xl border-opacity-50' : 'border-transparent opacity-40'}`} style={{ backgroundColor: widgetsConfig[w.id] ? c.accent : c.inputBg, borderColor: widgetsConfig[w.id] ? c.text : 'transparent' }}>
+                                                    <Icon name={w.icon} size={16}/>
+                                                    {w.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </section>
+
+                                    {/* Motywy */}
+                                    <section className="space-y-5">
+                                        <label className="text-[10px] font-black uppercase tracking-[0.25em] opacity-30">Personalizacja</label>
+                                        <div className={`p-6 ${c.innerRadius}`} style={{ backgroundColor: c.inputBg }}>
+                                            <div className="flex justify-between items-center mb-6">
+                                                <div className="flex gap-3">
+                                                    {Object.keys(m3Palettes).map(t => (
+                                                        <button key={t} onClick={() => setTheme(t)} className={`w-11 h-11 rounded-full border-4 transition-all ${theme === t ? 'border-white scale-125 shadow-xl' : 'border-transparent opacity-30 hover:opacity-100'}`} style={{ backgroundColor: m3Palettes[t].primary }} />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className={`flex p-1.5 ${c.btnRadius}`} style={{ backgroundColor: 'rgba(0,0,0,0.15)' }}>
+                                                <button onClick={() => setOsStyle('android')} className={`flex-1 py-3 ${c.btnRadius} text-[10px] font-black transition-all ${osStyle === 'android' ? 'shadow-lg' : 'opacity-40'}`} style={{ backgroundColor: osStyle === 'android' ? c.card : 'transparent' }}>ANDROID M3</button>
+                                                <button onClick={() => setOsStyle('ios')} className={`flex-1 py-3 ${c.btnRadius} text-[10px] font-black transition-all ${osStyle === 'ios' ? 'shadow-lg' : 'opacity-40'}`} style={{ backgroundColor: osStyle === 'ios' ? c.card : 'transparent' }}>iOS SPATIAL</button>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    {/* Opcje Systemowe */}
+                                    <section className="space-y-4 pt-6 border-t" style={{ borderColor: c.border }}>
+                                        <button onClick={() => { setHapticsEnabled(!hapticsEnabled); hapticAction('light'); }} className={`w-full py-5 px-6 ${c.btnRadius} font-black text-[11px] uppercase tracking-widest flex justify-between items-center transition-all ${hapticsEnabled ? 'text-white shadow-lg' : 'opacity-50'}`} style={{ backgroundColor: hapticsEnabled ? c.accent : c.inputBg }}>
+                                            Reakcja haptyczna <span>{hapticsEnabled ? 'WŁ' : 'WYŁ'}</span>
+                                        </button>
+                                        <button onClick={hardReset} className={`w-full py-5 ${c.btnRadius} bg-red-500/10 text-red-500 font-black text-[11px] uppercase tracking-[0.3em]`}>Twardy Reset Systemu</button>
+                                    </section>
+
+                                    <div className="text-center py-6 opacity-20 text-[9px] font-black uppercase tracking-[0.4em]">Zrzut Pro v{VERSION}</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
