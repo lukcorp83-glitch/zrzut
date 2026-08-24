@@ -487,11 +487,12 @@
                     const cMat = (ovr.mat !== undefined && ovr.mat !== '') ? parseFloat(ovr.mat) : defaultMatForThisDrop;
                     const cDrop = (ovr.drop !== undefined && ovr.drop !== '') ? parseFloat(ovr.drop) : bDrop;
                     const cSpd = (ovr.spd !== undefined && ovr.spd !== '') ? parseFloat(ovr.spd) : bSpd;
+                    const effectiveSpd = (isNaN(cSpd) || cSpd <= 0) ? 1 : cSpd;
                     const cDur = parseFloat(ovr.dur || baseDur) || 17;
                     const delay = parseFloat(ovr.delay || 0);
                     
                     const matToConsume = Math.max(0, cMat - cDrop);
-                    const waitTimeMinutes = (matToConsume / (cSpd || 1)) * 60;
+                    const waitTimeMinutes = (matToConsume / effectiveSpd) * 60;
                     const start = new Date(currentTime + (waitTimeMinutes + delay) * 60000);
                     const end = new Date(start.getTime() + cDur * 60000);
                     
@@ -508,7 +509,7 @@
             const liveData = useMemo(() => {
                 if (!schedule.length) return { isValid: false };
                 const h = now.getHours();
-                const shiftStart = new Date(now); shiftStart.setMinutes(0); shiftStart.setSeconds(0);
+                const shiftStart = new Date(now); shiftStart.setMinutes(0); shiftStart.setSeconds(0); shiftStart.setMilliseconds(0);
                 if (h >= 7 && h < 19) shiftStart.setHours(7); else { shiftStart.setHours(19); if (h < 7) shiftStart.setDate(shiftStart.getDate() - 1); }
                 const shiftEnd = new Date(shiftStart); shiftEnd.setHours(shiftEnd.getHours() + 12);
                 
@@ -519,8 +520,52 @@
                 const shiftDrops = schedule.filter(s => s.start >= now && s.start < shiftEnd);
                 const lastDropInShift = shiftDrops.length > 0 ? shiftDrops[shiftDrops.length - 1].startStr : null;
                 
-                return { isValid: true, displayItem, active: currentActive, next: nextUpcoming, progress, remainingInShift: shiftDrops.length, lastDropInShift };
-            }, [schedule, now]);
+                // Szacowanie aktualnej ilości materiału w maszynie (na żywo co sekundę):
+                let currentMatKg = null;
+                let matPercent = null;
+                let matStatus = '';
+                
+                if (displayItem) {
+                    const bMatVal = parseFloat(baseMat);
+                    const bMatAfterVal = parseFloat(baseMatAfter);
+                    const bDurVal = parseFloat(baseDur) || 17;
+                    const activePauseMs = currentPauseStart !== null ? (now.getTime() - currentPauseStart) : 0;
+                    
+                    const cycleStart = (displayItem.index === 0)
+                        ? (anchorTime + accumulatedPause + activePauseMs + (firstDropInProgress ? bDurVal * 60000 : 0))
+                        : (schedule[displayItem.index - 1]?.end?.getTime() || anchorTime);
+
+                    if (now.getTime() < displayItem.start.getTime()) {
+                        // Linia pracuje, ubywa surowca w maszynie:
+                        const elapsedMinutes = Math.max(0, (now.getTime() - cycleStart) / 60000);
+                        const consumed = elapsedMinutes * (displayItem.spd / 60);
+                        currentMatKg = Math.max(displayItem.drop, displayItem.mat - consumed);
+                        matStatus = 'Pobieranie materiału';
+                    } else if (now.getTime() <= displayItem.end.getTime()) {
+                        // Trwa zrzut materiału:
+                        const nextDropMat = (schedule[displayItem.index + 1]?.mat) || (!isNaN(bMatAfterVal) ? bMatAfterVal : displayItem.mat);
+                        const dropProgress = Math.min(1, Math.max(0, (now.getTime() - displayItem.start.getTime()) / (displayItem.dur * 60000)));
+                        currentMatKg = displayItem.drop + (nextDropMat - displayItem.drop) * dropProgress;
+                        matStatus = 'Trwa zrzut';
+                    }
+                    
+                    const maxCap = Math.max(bMatVal || 0, bMatAfterVal || 0, displayItem.mat, 1);
+                    matPercent = Math.max(0, Math.min(100, (currentMatKg / maxCap) * 100));
+                }
+
+                return { 
+                    isValid: true, 
+                    displayItem, 
+                    active: currentActive, 
+                    next: nextUpcoming, 
+                    progress, 
+                    remainingInShift: shiftDrops.length, 
+                    lastDropInShift,
+                    currentMatKg,
+                    matPercent,
+                    matStatus
+                };
+            }, [schedule, now, baseMat, baseMatAfter, baseDur, firstDropInProgress, anchorTime, accumulatedPause, currentPauseStart]);
 
             function formatLeft(ms) {
                 const s = Math.floor(ms / 1000); if (s < 0) return "0m 00s";
@@ -574,7 +619,7 @@
                                         <div className="absolute inset-0 opacity-20" style={{ background: 'repeating-linear-gradient(45deg, #f59e0b, #f59e0b 15px, transparent 15px, transparent 30px)'}} />
                                     )}
 
-                                    <div className="flex flex-col items-center z-10 relative">
+                                    <div className="flex flex-col items-center z-10 relative w-full">
                                         <span className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-1.5" style={{ color: currentPauseStart !== null ? '#f59e0b' : (liveData.active ? '#f59e0b' : c.accent) }}>
                                             <Icon name={currentPauseStart !== null ? "pause-circle" : (liveData.active ? "loader" : "activity")} size={14} />
                                             {currentPauseStart !== null ? 'LINIA ZATRZYMANA' : (liveData.active ? `TRWA ZRZUT #${liveData.active.index + 1}` : `DO ZRZUTU #${(liveData.displayItem?.index ?? 0) + 1}`)}
@@ -590,6 +635,36 @@
                                                 <span className="text-[9px] font-black uppercase tracking-widest opacity-60">
                                                     {liveData.active ? `Koniec zrzutu: ${liveData.displayItem.endStr}` : `Start zrzutu: ${liveData.displayItem.startStr}`}
                                                 </span>
+                                            </div>
+                                        )}
+
+                                        {/* WSKAŹNIK STANU MATERIAŁU W MASZYNIE NA ŻYWO */}
+                                        {liveData.currentMatKg !== null && (
+                                            <div className="mt-6 w-full pt-4 border-t flex flex-col gap-2" style={{ borderColor: c.border }}>
+                                                <div className="flex justify-between items-baseline px-1">
+                                                    <span className="text-[10px] font-black uppercase tracking-wider opacity-50 flex items-center gap-1.5">
+                                                        <Icon name="package" size={12} style={{ color: c.accent }} /> W maszynie
+                                                    </span>
+                                                    <div className="flex items-baseline gap-1">
+                                                        <span className="text-xl font-black tabular-nums tracking-tight" style={{ color: c.accent }}>
+                                                            ~{liveData.currentMatKg.toFixed(1)}
+                                                        </span>
+                                                        <span className="text-[10px] font-bold opacity-40 uppercase">kg</span>
+                                                    </div>
+                                                </div>
+                                                <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: c.inputBg }}>
+                                                    <div 
+                                                        className="h-full rounded-full transition-all duration-1000" 
+                                                        style={{ 
+                                                            width: `${liveData.matPercent}%`, 
+                                                            backgroundColor: liveData.currentMatKg <= (liveData.displayItem?.drop + 20) ? '#f59e0b' : c.accent 
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div className="flex justify-between text-[8px] font-bold opacity-40 px-1 uppercase tracking-widest">
+                                                    <span>Zrzut przy: {liveData.displayItem?.drop} kg</span>
+                                                    <span>{liveData.matStatus}</span>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -764,7 +839,15 @@
                                                     {[ { f: 'mat', l: 'Ilość' }, { f: 'drop', l: 'Zrzut' }, { f: 'spd', l: 'Prędkość' }, { f: 'dur', l: 'Czas' } ].map(ed => (
                                                         <div key={ed.f} className={`p-3 ${c.innerRadius}`} style={{ backgroundColor: c.inputBg }}>
                                                             <label className="text-[9px] font-bold uppercase opacity-40 mb-1 block">{ed.l}</label>
-                                                            <input type="number" placeholder={slot[ed.f]} onChange={e => setOverrides(prev => ({ ...prev, [i]: { ...(prev[i] || {}), [ed.f]: e.target.value } }))} className="bg-transparent w-full outline-none font-black text-lg" style={{ color: c.text }} />
+                                                            <input 
+                                                                type="number" 
+                                                                inputMode="decimal"
+                                                                placeholder={slot[ed.f]} 
+                                                                value={(overrides[i] && overrides[i][ed.f] !== undefined) ? overrides[i][ed.f] : ''}
+                                                                onChange={e => setOverrides(prev => ({ ...prev, [i]: { ...(prev[i] || {}), [ed.f]: e.target.value } }))} 
+                                                                className="bg-transparent w-full outline-none font-black text-lg" 
+                                                                style={{ color: c.text }} 
+                                                            />
                                                         </div>
                                                     ))}
                                                 </div>
