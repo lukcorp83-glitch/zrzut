@@ -172,6 +172,7 @@
             const [formFirstDropInProgress, setFormFirstDropInProgress] = useState(() => getInitial('firstDropInProgress', 'false') === 'true');
             const [justSaved, setJustSaved] = useState(false);
 
+            const [shiftSystem, setShiftSystem] = useState(getInitial('shiftSystem', '12h_6_18'));
             const [isDarkMode, setIsDarkMode] = useState(getInitial('darkMode', 'true') === 'true');
             const [theme, setTheme] = useState(getInitial('theme', 'indigo')); 
             const [osStyle, setOsStyle] = useState(getInitial('osStyle', 'ios')); 
@@ -432,6 +433,7 @@
                 localStorage.setItem('baseSpd', baseSpd);
                 localStorage.setItem('baseDur', baseDur);
                 localStorage.setItem('firstDropInProgress', String(firstDropInProgress));
+                localStorage.setItem('shiftSystem', shiftSystem);
                 localStorage.setItem('theme', theme);
                 localStorage.setItem('osStyle', osStyle);
                 localStorage.setItem('hapticsEnabled', String(hapticsEnabled));
@@ -450,7 +452,7 @@
                     document.documentElement.classList.remove('dark');
                     if(metaThemeColor) metaThemeColor.setAttribute('content', c.bg);
                 }
-            }, [baseMat, baseMatAfter, baseDrop, baseSpd, baseDur, firstDropInProgress, isDarkMode, theme, osStyle, hapticsEnabled, anchorTime, overrides, widgetsConfig, accumulatedPause, currentPauseStart, c]);
+            }, [baseMat, baseMatAfter, baseDrop, baseSpd, baseDur, firstDropInProgress, shiftSystem, isDarkMode, theme, osStyle, hapticsEnabled, anchorTime, overrides, widgetsConfig, accumulatedPause, currentPauseStart, c]);
 
             useEffect(() => {
                 const timer = setInterval(() => setNow(new Date()), 1000);
@@ -509,16 +511,53 @@
             const liveData = useMemo(() => {
                 if (!schedule.length) return { isValid: false };
                 const h = now.getHours();
-                const shiftStart = new Date(now); shiftStart.setMinutes(0); shiftStart.setSeconds(0); shiftStart.setMilliseconds(0);
-                if (h >= 7 && h < 19) shiftStart.setHours(7); else { shiftStart.setHours(19); if (h < 7) shiftStart.setDate(shiftStart.getDate() - 1); }
-                const shiftEnd = new Date(shiftStart); shiftEnd.setHours(shiftEnd.getHours() + 12);
                 
+                let shiftStart = new Date(now);
+                shiftStart.setMinutes(0); shiftStart.setSeconds(0); shiftStart.setMilliseconds(0);
+                let shiftLenHours = 12;
+
+                if (shiftSystem === '12h_6_18') {
+                    if (h >= 6 && h < 18) {
+                        shiftStart.setHours(6);
+                    } else {
+                        shiftStart.setHours(18);
+                        if (h < 6) shiftStart.setDate(shiftStart.getDate() - 1);
+                    }
+                    shiftLenHours = 12;
+                } else if (shiftSystem === '8h') {
+                    if (h >= 6 && h < 14) {
+                        shiftStart.setHours(6);
+                    } else if (h >= 14 && h < 22) {
+                        shiftStart.setHours(14);
+                    } else {
+                        shiftStart.setHours(22);
+                        if (h < 6) shiftStart.setDate(shiftStart.getDate() - 1);
+                    }
+                    shiftLenHours = 8;
+                } else {
+                    // 12h_7_19 (7-19 / 19-7)
+                    if (h >= 7 && h < 19) {
+                        shiftStart.setHours(7);
+                    } else {
+                        shiftStart.setHours(19);
+                        if (h < 7) shiftStart.setDate(shiftStart.getDate() - 1);
+                    }
+                    shiftLenHours = 12;
+                }
+
+                const shiftEnd = new Date(shiftStart.getTime() + shiftLenHours * 3600000);
                 const progress = Math.max(0, Math.min(100, ((now - shiftStart) / (shiftEnd - shiftStart)) * 100));
+                
                 const displayItem = schedule.find(s => now <= s.end) || null; 
                 const currentActive = displayItem && now >= displayItem.start ? displayItem : null;
-                const nextUpcoming = displayItem ? (currentActive ? schedule[displayItem.index + 1] : displayItem) : null;
+                
+                // Główny licznik LIVE pokazuje displayItem (najbliższy zrzut).
+                // Prawy widżet "Kolejny" pokazuje KOLEJNY zrzut po nim w kolejce:
+                const nextUpcoming = displayItem ? (schedule[displayItem.index + 1] || null) : null;
+                
                 const shiftDrops = schedule.filter(s => s.start >= now && s.start < shiftEnd);
-                const lastDropInShift = shiftDrops.length > 0 ? shiftDrops[shiftDrops.length - 1].startStr : null;
+                const allShiftDrops = schedule.filter(s => s.start >= shiftStart && s.start < shiftEnd);
+                const lastDropInShift = allShiftDrops.length > 0 ? allShiftDrops[allShiftDrops.length - 1].startStr : (shiftDrops.length > 0 ? shiftDrops[shiftDrops.length - 1].startStr : null);
                 
                 // Szacowanie aktualnej ilości materiału w maszynie (na żywo co sekundę):
                 let currentMatKg = null;
@@ -565,7 +604,7 @@
                     matPercent,
                     matStatus
                 };
-            }, [schedule, now, baseMat, baseMatAfter, baseDur, firstDropInProgress, anchorTime, accumulatedPause, currentPauseStart]);
+            }, [schedule, now, baseMat, baseMatAfter, baseDur, firstDropInProgress, shiftSystem, anchorTime, accumulatedPause, currentPauseStart]);
 
             function formatLeft(ms) {
                 const s = Math.floor(ms / 1000); if (s < 0) return "0m 00s";
@@ -686,7 +725,7 @@
                                 <div className={`p-5 flex flex-col justify-between spring-transform ${c.cardClass}`} style={{ backgroundColor: c.card, borderColor: c.border }}>
                                     <Icon name="layers" size={24} style={{ color: c.accent }} />
                                     <div className="mt-4">
-                                        <span className="text-[10px] font-black uppercase opacity-40 block tracking-widest mb-1">Do końca</span>
+                                        <span className="text-[10px] font-black uppercase opacity-40 block tracking-widest mb-1">Do końca zmiany</span>
                                         <div className="flex items-baseline gap-2">
                                             <span className="text-4xl font-black tracking-tighter tabular-nums leading-none">{liveData.remainingInShift}</span>
                                             {liveData.lastDropInShift && <span className="text-[9px] font-bold opacity-40 uppercase">OST: {liveData.lastDropInShift}</span>}
@@ -699,7 +738,7 @@
                                     <Icon name="clock" size={24} style={{ color: c.accent }} />
                                     <div className="mt-4">
                                         <span className="text-[10px] font-black uppercase opacity-40 block tracking-widest mb-1">
-                                            {liveData.next ? `Zrzut #${liveData.next.index + 1}` : 'Następny'}
+                                            {liveData.next ? `Kolejny #${liveData.next.index + 1}` : 'Kolejny zrzut'}
                                         </span>
                                         <span className="text-4xl font-black tracking-tighter tabular-nums leading-none">{liveData.next?.startStr || '--:--'}</span>
                                     </div>
@@ -903,6 +942,27 @@
                                                 <button key={w.id} onClick={() => setWidgetsConfig(prev => ({ ...prev, [w.id]: !prev[w.id] }))} className={`py-4 px-5 ${c.innerRadius} text-[10px] font-black transition-all flex flex-col gap-2 border ${widgetsConfig[w.id] ? 'text-white shadow-xl border-opacity-50' : 'border-transparent opacity-40'}`} style={{ backgroundColor: widgetsConfig[w.id] ? c.accent : c.inputBg, borderColor: widgetsConfig[w.id] ? c.text : 'transparent' }}>
                                                     <Icon name={w.icon} size={16}/>
                                                     {w.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </section>
+
+                                    {/* System Zmianowy */}
+                                    <section className="space-y-4">
+                                        <label className="text-[10px] font-black uppercase tracking-[0.25em] opacity-30">System Zmianowy</label>
+                                        <div className={`p-1.5 flex gap-1.5 ${c.innerRadius}`} style={{ backgroundColor: c.inputBg }}>
+                                            {[
+                                                { id: '12h_6_18', l: '12h (6-18)' },
+                                                { id: '12h_7_19', l: '12h (7-19)' },
+                                                { id: '8h', l: '8h (6-14-22)' }
+                                            ].map(s => (
+                                                <button 
+                                                    key={s.id} 
+                                                    onClick={() => { setShiftSystem(s.id); hapticAction('light'); }} 
+                                                    className={`flex-1 py-3 ${c.btnRadius} text-[10px] font-black transition-all ${shiftSystem === s.id ? 'text-white shadow-md' : 'opacity-40'}`} 
+                                                    style={{ backgroundColor: shiftSystem === s.id ? c.accent : 'transparent' }}
+                                                >
+                                                    {s.l}
                                                 </button>
                                             ))}
                                         </div>
