@@ -235,6 +235,7 @@
             });
 
             const [showSettings, setShowSettings] = useState(false);
+            const [showTpmModal, setShowTpmModal] = useState(false);
             const [now, setNow] = useState(new Date());
             const [expandedIndex, setExpandedIndex] = useState(null);
             const [isScrolled, setIsScrolled] = useState(false);
@@ -477,13 +478,23 @@
                 } catch(e) {}
             }, [now]);
 
-            const handleToggleTpm = () => {
+            const handleConfirmTpm = () => {
                 hapticAction('heavy');
                 AudioEngine.playLever();
                 const key = getShiftKey(now);
-                const nextState = tpmData.done 
-                    ? { done: false, time: null } 
-                    : { done: true, time: new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) };
+                const timeStr = new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+                const nextState = { done: true, time: timeStr };
+                setTpmData(nextState);
+                try {
+                    localStorage.setItem(key, JSON.stringify(nextState));
+                } catch(e) {}
+                setShowTpmModal(false);
+            };
+
+            const handleRevertTpm = () => {
+                hapticAction('medium');
+                const key = getShiftKey(now);
+                const nextState = { done: false, time: null };
                 setTpmData(nextState);
                 try {
                     localStorage.setItem(key, JSON.stringify(nextState));
@@ -878,7 +889,7 @@
                                     </div>
 
                                     <button
-                                        onClick={handleToggleTpm}
+                                        onClick={tpmData.done ? handleRevertTpm : () => { hapticAction('light'); setShowTpmModal(true); }}
                                         className={`px-4 py-2.5 ${c.btnRadius} font-black text-[10px] uppercase tracking-wider transition-all squash-bounce active:scale-95 shadow-sm`}
                                         style={{
                                             backgroundColor: tpmData.done ? c.inputBg : c.accent,
@@ -1071,6 +1082,49 @@
                             <button onClick={() => { hapticAction('light'); setShowSettings(true); }} className="p-4 rounded-full squash-bounce"><div className={showSettings ? "spin-slow" : ""}><Icon name="settings-2" size={22} /></div></button>
                         </div>
                     </div>
+
+                    {/* OKNO POTWIERDZENIA WYKONANIA TPM */}
+                    {showTpmModal && (
+                        <div 
+                            className={`fixed inset-0 z-[110] flex items-center justify-center bg-black/75 animate-in fade-in duration-300 px-4 ${c.blur}`}
+                            onClick={() => setShowTpmModal(false)}
+                        >
+                            <div 
+                                className={`w-full max-w-sm p-7 shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 border ${c.cardClass}`}
+                                style={{ backgroundColor: modalInner, borderColor: c.border }}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="flex flex-col items-center text-center">
+                                    <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/10">
+                                        <Icon name="clipboard-check" size={32} />
+                                    </div>
+                                    <h3 className="text-xl font-black tracking-tight">Zatwierdzenie TPM</h3>
+                                    <p className="text-xs opacity-60 mt-2 leading-relaxed">
+                                        Czy na pewno wszystkie punkty karty codziennej obsługi i inspekcji stanowiska (TPM) zostały zrealizowane?
+                                    </p>
+                                    <div className="mt-4 px-3 py-1.5 rounded-full bg-black/10 dark:bg-white/10 text-[10px] font-bold opacity-60">
+                                        Godzina zatwierdzenia: {new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2 pt-2">
+                                    <button
+                                        onClick={handleConfirmTpm}
+                                        className={`w-full py-4 ${c.btnRadius} font-black text-xs uppercase tracking-wider text-white shadow-xl bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition-all squash-bounce flex items-center justify-center gap-2`}
+                                    >
+                                        <Icon name="check" size={16} /> Tak, zatwierdzam TPM
+                                    </button>
+                                    <button
+                                        onClick={() => setShowTpmModal(false)}
+                                        className={`w-full py-3.5 ${c.btnRadius} font-bold text-xs uppercase tracking-wider opacity-60 hover:opacity-100 transition-all`}
+                                        style={{ backgroundColor: c.inputBg }}
+                                    >
+                                        Anuluj
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* MODAL USTAWIEŃ Z MOŻLIWOŚCIĄ KLIKNIĘCIA W TŁO BY ZAMKNĄĆ */}
                     {showSettings && (
