@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Kalkulator Zrzutu Pro v4.6.1</title>
+    <title>Zrzut v4.7.0</title>
     
     <!-- DYNAMICZNY MANIFEST PWA -->
     <link rel="manifest" id="dynamic-manifest">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Zrzut Pro">
+    <meta name="apple-mobile-web-app-title" content="Zrzut">
     <meta name="theme-color" content="#121212" id="meta-theme-color">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%236366f1'/><path d='M30 50 L50 70 L70 30' stroke='white' stroke-width='10' fill='none'/></svg>">
 
@@ -147,7 +147,7 @@
         };
 
         function App() {
-            const VERSION = "4.6.1";
+            const VERSION = "4.7.0";
 
             const getInitial = (key, fallback) => {
                 try {
@@ -161,6 +161,17 @@
             const [baseDrop, setBaseDrop] = useState(getInitial('baseDrop', ''));
             const [baseSpd, setBaseSpd] = useState(getInitial('baseSpd', ''));
             const [baseDur, setBaseDur] = useState(getInitial('baseDur', '17'));
+            const [firstDropInProgress, setFirstDropInProgress] = useState(() => getInitial('firstDropInProgress', 'false') === 'true');
+
+            // Formularz roboczy (zapobiega resetowaniu harmonogramu w trakcie wpisywania)
+            const [formMat, setFormMat] = useState(getInitial('baseMat', ''));
+            const [formMatAfter, setFormMatAfter] = useState(getInitial('baseMatAfter', ''));
+            const [formDrop, setFormDrop] = useState(getInitial('baseDrop', ''));
+            const [formSpd, setFormSpd] = useState(getInitial('baseSpd', ''));
+            const [formDur, setFormDur] = useState(getInitial('baseDur', '17'));
+            const [formFirstDropInProgress, setFormFirstDropInProgress] = useState(() => getInitial('firstDropInProgress', 'false') === 'true');
+            const [justSaved, setJustSaved] = useState(false);
+
             const [isDarkMode, setIsDarkMode] = useState(getInitial('darkMode', 'true') === 'true');
             const [theme, setTheme] = useState(getInitial('theme', 'indigo')); 
             const [osStyle, setOsStyle] = useState(getInitial('osStyle', 'ios')); 
@@ -265,7 +276,7 @@
             useEffect(() => {
                 const manifestData = {
                     name: "Kalkulator Zrzutu",
-                    short_name: "Zrzut Pro",
+                    short_name: "Zrzut",
                     start_url: ".",
                     display: "standalone",
                     background_color: c.bg,
@@ -349,11 +360,44 @@
                 }
             };
 
+            const isFormDirty = formMat !== baseMat || formMatAfter !== baseMatAfter || formDrop !== baseDrop || formSpd !== baseSpd || formDur !== baseDur || formFirstDropInProgress !== firstDropInProgress;
+
+            const handleSaveForm = () => {
+                hapticAction('heavy');
+                AudioEngine.playLever();
+                setBaseMat(formMat);
+                setBaseMatAfter(formMatAfter);
+                setBaseDrop(formDrop);
+                setBaseSpd(formSpd);
+                setBaseDur(formDur);
+                setFirstDropInProgress(formFirstDropInProgress);
+                setAnchorTime(Date.now());
+                setAccumulatedPause(0);
+                if (currentPauseStart !== null) setCurrentPauseStart(null);
+                setJustSaved(true);
+                setTimeout(() => setJustSaved(false), 2500);
+            };
+
             const clearBaseValues = () => {
                 hapticAction('medium');
+                setFormMat(''); setFormMatAfter(''); setFormDrop(''); setFormSpd('');
+                setFormFirstDropInProgress(false);
                 setBaseMat(''); setBaseMatAfter(''); setBaseDrop(''); setBaseSpd('');
+                setFirstDropInProgress(false);
                 setOverrides({});
                 setAnchorTime(Date.now());
+                setAccumulatedPause(0);
+                if (currentPauseStart !== null) setCurrentPauseStart(null);
+            };
+
+            const syncAnchorToNow = () => {
+                hapticAction('medium');
+                AudioEngine.playLever();
+                setAnchorTime(Date.now());
+                setAccumulatedPause(0);
+                if (currentPauseStart !== null) setCurrentPauseStart(null);
+                setJustSaved(true);
+                setTimeout(() => setJustSaved(false), 2000);
             };
             
             const handleForceStart = (index) => {
@@ -387,6 +431,7 @@
                 localStorage.setItem('baseDrop', baseDrop);
                 localStorage.setItem('baseSpd', baseSpd);
                 localStorage.setItem('baseDur', baseDur);
+                localStorage.setItem('firstDropInProgress', String(firstDropInProgress));
                 localStorage.setItem('theme', theme);
                 localStorage.setItem('osStyle', osStyle);
                 localStorage.setItem('hapticsEnabled', String(hapticsEnabled));
@@ -405,7 +450,7 @@
                     document.documentElement.classList.remove('dark');
                     if(metaThemeColor) metaThemeColor.setAttribute('content', c.bg);
                 }
-            }, [baseMat, baseMatAfter, baseDrop, baseSpd, baseDur, isDarkMode, theme, osStyle, hapticsEnabled, anchorTime, overrides, widgetsConfig, accumulatedPause, currentPauseStart, c]);
+            }, [baseMat, baseMatAfter, baseDrop, baseSpd, baseDur, firstDropInProgress, isDarkMode, theme, osStyle, hapticsEnabled, anchorTime, overrides, widgetsConfig, accumulatedPause, currentPauseStart, c]);
 
             useEffect(() => {
                 const timer = setInterval(() => setNow(new Date()), 1000);
@@ -422,11 +467,17 @@
                 const bMatAfter = parseFloat(baseMatAfter);
                 const bDrop = parseFloat(baseDrop); 
                 const bSpd = parseFloat(baseSpd);
+                const bDur = parseFloat(baseDur) || 17;
                 if (isNaN(bMat) || isNaN(bDrop) || isNaN(bSpd)) return [];
                 
                 const items = [];
                 const activePauseMs = currentPauseStart !== null ? (now.getTime() - currentPauseStart) : 0;
                 let currentTime = anchorTime + accumulatedPause + activePauseMs;
+                
+                // Jeśli pierwszy zrzut właśnie trwa w punkcie startowym:
+                if (firstDropInProgress) {
+                    currentTime += bDur * 60000;
+                }
                 
                 for (let i = 0; i < 30; i++) {
                     const ovr = overrides[i] || {};
@@ -439,8 +490,9 @@
                     const cDur = parseFloat(ovr.dur || baseDur) || 17;
                     const delay = parseFloat(ovr.delay || 0);
                     
-                    const waitTime = Math.round((Math.abs(cMat - cDrop) / (cSpd || 1)) * 60);
-                    const start = new Date(currentTime + (waitTime + delay) * 60000);
+                    const matToConsume = Math.max(0, cMat - cDrop);
+                    const waitTimeMinutes = (matToConsume / (cSpd || 1)) * 60;
+                    const start = new Date(currentTime + (waitTimeMinutes + delay) * 60000);
                     const end = new Date(start.getTime() + cDur * 60000);
                     
                     items.push({ 
@@ -451,7 +503,7 @@
                     currentTime = end.getTime();
                 }
                 return items;
-            }, [baseMat, baseMatAfter, baseDrop, baseSpd, baseDur, overrides, anchorTime, accumulatedPause, currentPauseStart, now]);
+            }, [baseMat, baseMatAfter, baseDrop, baseSpd, baseDur, firstDropInProgress, overrides, anchorTime, accumulatedPause, currentPauseStart, now]);
 
             const liveData = useMemo(() => {
                 if (!schedule.length) return { isValid: false };
@@ -463,7 +515,7 @@
                 const progress = Math.max(0, Math.min(100, ((now - shiftStart) / (shiftEnd - shiftStart)) * 100));
                 const displayItem = schedule.find(s => now <= s.end) || null; 
                 const currentActive = displayItem && now >= displayItem.start ? displayItem : null;
-                const nextUpcoming = displayItem ? schedule[displayItem.index + 1] : null;
+                const nextUpcoming = displayItem ? (currentActive ? schedule[displayItem.index + 1] : displayItem) : null;
                 const shiftDrops = schedule.filter(s => s.start >= now && s.start < shiftEnd);
                 const lastDropInShift = shiftDrops.length > 0 ? shiftDrops[shiftDrops.length - 1].startStr : null;
                 
@@ -490,7 +542,7 @@
                         )}
                         <div className={`w-full max-w-md flex justify-between items-center px-6 transition-all duration-300 ${isScrolled ? 'py-3' : 'py-5'}`}>
                             <div className="flex flex-col">
-                                <h1 className="text-xl font-black tracking-tighter leading-none">Zrzut Pro</h1>
+                                <h1 className="text-xl font-black tracking-tighter leading-none">Zrzut</h1>
                                 <span className="text-[8px] font-black uppercase opacity-30 mt-1 tracking-widest">v{VERSION}</span>
                             </div>
                             {liveData.isValid && (
@@ -523,17 +575,23 @@
                                     )}
 
                                     <div className="flex flex-col items-center z-10 relative">
-                                        <span className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-1.5" style={{ color: currentPauseStart !== null ? '#f59e0b' : c.accent }}>
-                                            <Icon name={currentPauseStart !== null ? "pause-circle" : "activity"} size={14} />
-                                            {currentPauseStart !== null ? 'LINIA ZATRZYMANA' : 'OPERACJA LIVE'}
+                                        <span className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-1.5" style={{ color: currentPauseStart !== null ? '#f59e0b' : (liveData.active ? '#f59e0b' : c.accent) }}>
+                                            <Icon name={currentPauseStart !== null ? "pause-circle" : (liveData.active ? "loader" : "activity")} size={14} />
+                                            {currentPauseStart !== null ? 'LINIA ZATRZYMANA' : (liveData.active ? `TRWA ZRZUT #${liveData.active.index + 1}` : `DO ZRZUTU #${(liveData.displayItem?.index ?? 0) + 1}`)}
                                         </span>
-                                        <h2 className={`text-7xl font-black tracking-tighter tabular-nums leading-none ${currentPauseStart === null ? 'animate-float' : ''}`} style={{ color: currentPauseStart !== null ? '#f59e0b' : c.text }}>
+                                        <h2 className={`text-7xl font-black tracking-tighter tabular-nums leading-none ${currentPauseStart === null ? 'animate-float' : ''}`} style={{ color: currentPauseStart !== null ? '#f59e0b' : (liveData.active ? '#f59e0b' : c.text) }}>
                                             {liveData.displayItem ? (now >= liveData.displayItem.start ? formatLeft(liveData.displayItem.end - now) : formatLeft(liveData.displayItem.start - now)) : '--'}
                                         </h2>
-                                        <div className="flex items-center gap-2 mt-4">
-                                            <span className={`px-2.5 py-1 text-[9px] font-black shadow-sm ${c.btnRadius}`} style={{ backgroundColor: c.inputBg, color: c.text }}>#{liveData.displayItem?.index + 1}</span>
-                                            <span className="text-[9px] font-black uppercase tracking-widest opacity-40">Kolejna akcja</span>
-                                        </div>
+                                        {liveData.displayItem && (
+                                            <div className="flex items-center gap-2 mt-4">
+                                                <span className={`px-2.5 py-1 text-[9px] font-black shadow-sm ${c.btnRadius}`} style={{ backgroundColor: c.inputBg, color: liveData.active ? '#f59e0b' : c.accent }}>
+                                                    #{liveData.displayItem.index + 1}
+                                                </span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest opacity-60">
+                                                    {liveData.active ? `Koniec zrzutu: ${liveData.displayItem.endStr}` : `Start zrzutu: ${liveData.displayItem.startStr}`}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -565,7 +623,9 @@
                                 <div className={`p-5 flex flex-col justify-between spring-transform ${c.cardClass}`} style={{ backgroundColor: c.card, borderColor: c.border }}>
                                     <Icon name="clock" size={24} style={{ color: c.accent }} />
                                     <div className="mt-4">
-                                        <span className="text-[10px] font-black uppercase opacity-40 block tracking-widest mb-1">Następny</span>
+                                        <span className="text-[10px] font-black uppercase opacity-40 block tracking-widest mb-1">
+                                            {liveData.next ? `Zrzut #${liveData.next.index + 1}` : 'Następny'}
+                                        </span>
                                         <span className="text-4xl font-black tracking-tighter tabular-nums leading-none">{liveData.next?.startStr || '--:--'}</span>
                                     </div>
                                 </div>
@@ -576,28 +636,88 @@
                         {widgetsConfig.baseConfig && (
                             <div className={`p-7 mx-4 ${c.cardClass}`} style={{ backgroundColor: c.card, borderColor: c.border }}>
                                 <div className="flex justify-between items-center mb-6 px-1">
-                                    <h2 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-30 flex items-center gap-2">
-                                        <Icon name="database" size={12}/> Baza Danych
-                                    </h2>
-                                    <button onClick={clearBaseValues} className="p-3 rounded-full bg-red-500/10 text-red-500/60 hover:text-red-500 transition-all squash-bounce">
-                                        <Icon name="trash-2" size={18} />
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-30 flex items-center gap-2">
+                                            <Icon name="database" size={12}/> Baza Danych
+                                        </h2>
+                                        <span className="text-[9px] font-bold opacity-30">
+                                            Start: {new Date(anchorTime).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={syncAnchorToNow} title="Zsynchronizuj czas startowy z bieżącą chwilą" className={`px-2.5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all squash-bounce shadow-sm`} style={{ backgroundColor: c.inputBg, color: c.accent }}>
+                                            <Icon name="refresh-cw" size={11} /> Teraz
+                                        </button>
+                                        <button onClick={clearBaseValues} title="Wyczyść dane" className="p-2.5 rounded-full bg-red-500/10 text-red-500/60 hover:text-red-500 transition-all squash-bounce">
+                                            <Icon name="trash-2" size={16} />
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     {[ 
-                                        { l: 'Mat. (kg)', v: baseMat, s: setBaseMat, i: 'package' }, 
-                                        { l: 'Po (kg)', v: baseMatAfter, s: setBaseMatAfter, i: 'package-plus' }, 
-                                        { l: 'Zrzut', v: baseDrop, s: setBaseDrop, i: 'target' }, 
-                                        { l: 'Prędkość', v: baseSpd, s: setBaseSpd, i: 'gauge' } 
+                                        { l: 'Mat. (kg)', v: formMat, s: setFormMat, i: 'package' }, 
+                                        { l: 'Po (kg)', v: formMatAfter, s: setFormMatAfter, i: 'package-plus' }, 
+                                        { l: 'Zrzut', v: formDrop, s: setFormDrop, i: 'target' }, 
+                                        { l: 'Prędkość', v: formSpd, s: setFormSpd, i: 'gauge' } 
                                     ].map((f, idx) => (
                                         <div key={idx} className={`p-4 ${c.innerRadius}`} style={{ backgroundColor: c.inputBg }}>
                                             <label className="text-[9px] font-bold uppercase tracking-widest opacity-40 flex items-center gap-1.5 mb-2"><Icon name={f.i} size={11}/> {f.l}</label>
-                                            <input type="number" inputMode="decimal" value={f.v} onChange={e => { f.s(e.target.value); setAnchorTime(Date.now()); }} className="w-full bg-transparent text-2xl font-black outline-none tabular-nums" style={{ color: c.text }} placeholder="0" />
+                                            <input 
+                                                type="number" 
+                                                inputMode="decimal" 
+                                                value={f.v} 
+                                                onChange={e => f.s(e.target.value)} 
+                                                onKeyDown={e => { if (e.key === 'Enter') handleSaveForm(); }}
+                                                className="w-full bg-transparent text-2xl font-black outline-none tabular-nums" 
+                                                style={{ color: c.text }} 
+                                                placeholder="0" 
+                                            />
                                         </div>
                                     ))}
                                     <div className={`col-span-2 p-4 text-center ${c.innerRadius}`} style={{ backgroundColor: c.inputBg }}>
-                                        <label className="text-[9px] font-bold uppercase tracking-widest opacity-40 flex items-center gap-1.5 mb-2 justify-center"><Icon name="hourglass" size={11}/> Trwanie sesji</label>
-                                        <input type="number" value={baseDur} onChange={e => { setBaseDur(e.target.value); setAnchorTime(Date.now()); }} className="w-full bg-transparent text-2xl font-black outline-none text-center" style={{ color: c.text }} />
+                                        <label className="text-[9px] font-bold uppercase tracking-widest opacity-40 flex items-center gap-1.5 mb-2 justify-center"><Icon name="hourglass" size={11}/> Trwanie sesji (min)</label>
+                                        <input 
+                                            type="number" 
+                                            value={formDur} 
+                                            onChange={e => setFormDur(e.target.value)} 
+                                            onKeyDown={e => { if (e.key === 'Enter') handleSaveForm(); }}
+                                            className="w-full bg-transparent text-2xl font-black outline-none text-center" 
+                                            style={{ color: c.text }} 
+                                        />
+                                    </div>
+                                    
+                                    {/* STATUS PIERWSZEGO ZRZUTU */}
+                                    <div className={`col-span-2 p-3.5 ${c.innerRadius} flex items-center justify-between gap-3 border transition-all`} style={{ backgroundColor: c.inputBg, borderColor: formFirstDropInProgress ? '#f59e0b40' : 'transparent' }}>
+                                        <div className="flex flex-col">
+                                            <span className="text-[9px] font-black uppercase tracking-wider opacity-40">Status 1. zrzutu</span>
+                                            <span className="text-[11px] font-bold flex items-center gap-1.5" style={{ color: formFirstDropInProgress ? '#f59e0b' : c.accent }}>
+                                                <Icon name={formFirstDropInProgress ? "loader" : "check-circle"} size={13} />
+                                                {formFirstDropInProgress ? `Trwa zrzut (+${formDur || 17} min)` : 'Po zrzucie (odliczaj)'}
+                                            </span>
+                                        </div>
+                                        <button 
+                                            onClick={() => { hapticAction('light'); setFormFirstDropInProgress(!formFirstDropInProgress); }} 
+                                            className={`px-3 py-2 text-[9px] font-black uppercase ${c.btnRadius} transition-all squash-bounce shadow-sm`}
+                                            style={{ backgroundColor: formFirstDropInProgress ? '#f59e0b' : c.surface, color: formFirstDropInProgress ? '#fff' : c.text, border: `1px solid ${formFirstDropInProgress ? '#d97706' : c.border}` }}
+                                        >
+                                            {formFirstDropInProgress ? 'Ustaw: Po zrzucie' : 'Ustaw: Trwa zrzut'}
+                                        </button>
+                                    </div>
+
+                                    {/* PRZYCISK ZAPISZ I PRZELICZ */}
+                                    <div className="col-span-2 pt-2">
+                                        <button 
+                                            onClick={handleSaveForm}
+                                            className={`w-full py-4 px-6 font-black uppercase text-xs tracking-wider flex items-center justify-center gap-2.5 transition-all squash-bounce shadow-md ${c.btnRadius}`}
+                                            style={{ 
+                                                backgroundColor: justSaved ? '#10b981' : (isFormDirty ? c.accent : c.surface), 
+                                                color: (justSaved || isFormDirty) ? '#fff' : c.text,
+                                                border: `1px solid ${isFormDirty ? c.accent : c.border}`
+                                            }}
+                                        >
+                                            <Icon name={justSaved ? "check" : "save"} size={18} />
+                                            {justSaved ? "ZAPISANO I PRZELICZONO!" : (isFormDirty ? "ZAPISZ I PRZELICZ HARMONOGRAM" : "ZASTOSUJ ZMIANY / SYNCHRONIZUJ")}
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -731,7 +851,7 @@
                                         <button onClick={hardReset} className={`w-full py-5 ${c.btnRadius} bg-red-500/10 text-red-500 font-black text-[11px] uppercase tracking-[0.3em]`}>Twardy Reset Systemu</button>
                                     </section>
 
-                                    <div className="text-center py-6 opacity-20 text-[9px] font-black uppercase tracking-[0.4em]">Zrzut Pro v{VERSION}</div>
+                                    <div className="text-center py-6 opacity-20 text-[9px] font-black uppercase tracking-[0.4em]">Zrzut v{VERSION}</div>
                                 </div>
                             </div>
                         </div>
