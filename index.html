@@ -904,67 +904,6 @@
                             </div>
                         )}
 
-                        {/* WIDŻETY PARAMETRÓW BAZOWYCH Z INFO */}
-                        {widgetsConfig.paramsGrid !== false && (
-                            <div className="px-4 space-y-2">
-                                <div className="flex justify-between items-center px-1">
-                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-30">Parametry Pracy (Kliknij kafelek)</span>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    {[
-                                        { 
-                                            id: 'mat', 
-                                            label: 'MAT (Przed)', 
-                                            value: baseMat ? `${baseMat} kg` : '-- kg', 
-                                            icon: 'package', 
-                                            desc: 'Aktualna ilość materiału w mieszalniku przed rozpoczęciem zrzutu.',
-                                            fullTitle: 'Ilość przed zrzutem (MAT)'
-                                        },
-                                        { 
-                                            id: 'matAfter', 
-                                            label: 'PO (Po zrzucie)', 
-                                            value: baseMatAfter ? `${baseMatAfter} kg` : '-- kg', 
-                                            icon: 'plus-circle', 
-                                            desc: 'Ilość materiału w mieszalniku po zakończeniu zrzutu.',
-                                            fullTitle: 'Ilość po zrzucie (PO)'
-                                        },
-                                        { 
-                                            id: 'drop', 
-                                            label: 'ZRZUT (Próg)', 
-                                            value: baseDrop ? `${baseDrop} kg` : '-- kg', 
-                                            icon: 'arrow-down-circle', 
-                                            desc: 'Przy jakiej ilości materiału w mieszalniku zaczyna się zrzut.',
-                                            fullTitle: 'Próg wyzwolenia zrzutu'
-                                        },
-                                        { 
-                                            id: 'spd', 
-                                            label: 'PRĘDKOŚĆ', 
-                                            value: baseSpd ? `${baseSpd} kg/h` : '-- kg/h', 
-                                            icon: 'zap', 
-                                            desc: 'Aktualna prędkość zużywania materiału przez maszynę na godzinę.',
-                                            fullTitle: 'Prędkość linii produkcyjnej'
-                                        }
-                                    ].map(p => (
-                                        <button
-                                            key={p.id}
-                                            onClick={() => { hapticAction('light'); setInfoModalParam(p); }}
-                                            className={`p-4 ${c.cardClass} flex flex-col justify-between text-left transition-all squash-bounce active:scale-95 group border`}
-                                            style={{ backgroundColor: c.card, borderColor: c.border }}
-                                        >
-                                            <div className="flex justify-between items-center w-full">
-                                                <Icon name={p.icon} size={18} style={{ color: c.accent }} />
-                                                <Icon name="info" size={13} className="opacity-30 group-hover:opacity-100 transition-opacity" />
-                                            </div>
-                                            <div className="mt-3">
-                                                <span className="text-[9px] font-black uppercase opacity-40 block tracking-wider">{p.label}</span>
-                                                <span className="text-xl font-black tracking-tight tabular-nums mt-0.5 block">{p.value}</span>
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
                         {/* KONFIGURACJA BAZOWA */}
                         {widgetsConfig.baseConfig && (
                             <div className={`p-7 mx-4 ${c.cardClass}`} style={{ backgroundColor: c.card, borderColor: c.border }}>
@@ -988,13 +927,56 @@
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     {[ 
-                                        { l: 'Mat. (kg)', v: formMat, s: setFormMat, i: 'package' }, 
-                                        { l: 'Po (kg)', v: formMatAfter, s: setFormMatAfter, i: 'package-plus' }, 
-                                        { l: 'Zrzut', v: formDrop, s: setFormDrop, i: 'target' }, 
-                                        { l: 'Prędkość', v: formSpd, s: setFormSpd, i: 'gauge' } 
+                                        { 
+                                            l: 'Mat. (kg)', 
+                                            v: formMat, 
+                                            s: setFormMat, 
+                                            i: 'package',
+                                            fullTitle: 'Ilość przed zrzutem (MAT)',
+                                            desc: 'Aktualna ilość materiału w mieszalniku przed rozpoczęciem pierwszego zrzutu.',
+                                            unit: 'kg'
+                                        }, 
+                                        { 
+                                            l: 'Po (kg)', 
+                                            v: formMatAfter, 
+                                            s: setFormMatAfter, 
+                                            i: 'package-plus',
+                                            fullTitle: 'Ilość po zrzucie (PO)',
+                                            desc: 'Docelowa ilość materiału w mieszalniku po zakończeniu procesu zrzutu.',
+                                            unit: 'kg'
+                                        }, 
+                                        { 
+                                            l: 'Zrzut (kg)', 
+                                            v: formDrop, 
+                                            s: setFormDrop, 
+                                            i: 'target',
+                                            fullTitle: 'Próg wyzwolenia zrzutu',
+                                            desc: 'Przy jakiej ilości materiału w mieszalniku automatycznie rozpoczyna się kolejny zrzut.',
+                                            unit: 'kg'
+                                        }, 
+                                        { 
+                                            l: 'Prędkość (kg/h)', 
+                                            v: formSpd, 
+                                            s: setFormSpd, 
+                                            i: 'gauge',
+                                            fullTitle: 'Prędkość linii produkcyjnej',
+                                            desc: 'Aktualna prędkość zużywania / pobierania materiału przez maszynę na godzinę.',
+                                            unit: 'kg/h'
+                                        } 
                                     ].map((f, idx) => (
-                                        <div key={idx} className={`p-4 ${c.innerRadius}`} style={{ backgroundColor: c.inputBg }}>
-                                            <label className="text-[9px] font-bold uppercase tracking-widest opacity-40 flex items-center gap-1.5 mb-2"><Icon name={f.i} size={11}/> {f.l}</label>
+                                        <div key={idx} className={`p-4 ${c.innerRadius} flex flex-col justify-between`} style={{ backgroundColor: c.inputBg }}>
+                                            <div 
+                                                onClick={() => { hapticAction('light'); setInfoModalParam({ ...f, icon: f.i, value: f.v ? `${f.v} ${f.unit}` : '--' }); }}
+                                                className="flex items-center justify-between cursor-pointer group mb-2 select-none"
+                                                title="Kliknij po informację do czego służy ten parametr"
+                                            >
+                                                <label className="text-[9px] font-bold uppercase tracking-widest opacity-40 group-hover:opacity-100 flex items-center gap-1.5 transition-opacity cursor-pointer">
+                                                    <Icon name={f.i} size={11} style={{ color: c.accent }} /> {f.l}
+                                                </label>
+                                                <span className="p-0.5 rounded-full opacity-30 group-hover:opacity-100 group-hover:text-indigo-400 transition-all">
+                                                    <Icon name="info" size={11} />
+                                                </span>
+                                            </div>
                                             <input 
                                                 type="number" 
                                                 inputMode="decimal" 
@@ -1008,13 +990,22 @@
                                         </div>
                                     ))}
                                     <div className={`col-span-2 p-4 text-center ${c.innerRadius}`} style={{ backgroundColor: c.inputBg }}>
-                                        <label className="text-[9px] font-bold uppercase tracking-widest opacity-40 flex items-center gap-1.5 mb-2 justify-center"><Icon name="hourglass" size={11}/> Trwanie sesji (min)</label>
+                                        <div 
+                                            onClick={() => { hapticAction('light'); setInfoModalParam({ fullTitle: 'Trwanie sesji zrzutu', icon: 'hourglass', value: `${formDur || 17} min`, desc: 'Czas trwania pojedynczego procesu zrzucania / uzupełniania materiału w mieszalniku (domyślnie 17 minut).' }); }}
+                                            className="flex items-center justify-center gap-1.5 cursor-pointer group mb-2 select-none"
+                                            title="Kliknij po informację do czego służy ten parametr"
+                                        >
+                                            <label className="text-[9px] font-bold uppercase tracking-widest opacity-40 group-hover:opacity-100 flex items-center gap-1.5 transition-opacity cursor-pointer">
+                                                <Icon name="hourglass" size={11} style={{ color: c.accent }} /> Trwanie sesji (min)
+                                            </label>
+                                            <Icon name="info" size={11} className="opacity-30 group-hover:opacity-100 transition-opacity" />
+                                        </div>
                                         <input 
                                             type="number" 
                                             value={formDur} 
                                             onChange={e => setFormDur(e.target.value)} 
                                             onKeyDown={e => { if (e.key === 'Enter') handleSaveForm(); }}
-                                            className="w-full bg-transparent text-2xl font-black outline-none text-center" 
+                                            className="w-full bg-transparent text-2xl font-black outline-none text-center tabular-nums" 
                                             style={{ color: c.text }} 
                                         />
                                     </div>
@@ -1256,7 +1247,6 @@
                                                 { id: 'total', label: 'Zrzuty do końca', icon: 'layers' },
                                                 { id: 'next', label: 'Następny Up', icon: 'clock' },
                                                 { id: 'tpm', label: 'TPM Stanowiska', icon: 'clipboard-check' },
-                                                { id: 'paramsGrid', label: 'Karty Parametrów', icon: 'sliders' },
                                                 { id: 'baseConfig', label: 'Baza Danych', icon: 'database' }
                                             ].map(w => (
                                                 <button key={w.id} onClick={() => setWidgetsConfig(prev => ({ ...prev, [w.id]: !prev[w.id] }))} className={`py-4 px-5 ${c.innerRadius} text-[10px] font-black transition-all flex flex-col gap-2 border ${widgetsConfig[w.id] ? 'text-white shadow-xl border-opacity-50' : 'border-transparent opacity-40'}`} style={{ backgroundColor: widgetsConfig[w.id] ? c.accent : c.inputBg, borderColor: widgetsConfig[w.id] ? c.text : 'transparent' }}>
