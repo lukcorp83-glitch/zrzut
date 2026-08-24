@@ -212,10 +212,16 @@
             });
 
             const [widgetsConfig, setWidgetsConfig] = useState(() => {
+                const defaultCfg = { progress: true, live: true, total: true, next: true, tpm: true, baseConfig: true };
                 try {
                     const saved = localStorage.getItem('widgetsConfig');
-                    return saved ? JSON.parse(saved) : { progress: true, live: true, total: true, next: true, tpm: true, paramsGrid: true, baseConfig: true };
-                } catch(e) { return { progress: true, live: true, total: true, next: true, tpm: true, paramsGrid: true, baseConfig: true }; }
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        delete parsed.paramsGrid;
+                        return { ...defaultCfg, ...parsed };
+                    }
+                    return defaultCfg;
+                } catch(e) { return defaultCfg; }
             });
 
             const [anchorTime, setAnchorTime] = useState(() => {
@@ -853,7 +859,7 @@
                         </div>
 
                         {/* KARTA TPM ZMIANOWY */}
-                        {widgetsConfig.tpm !== false && (
+                        {Boolean(widgetsConfig.tpm) && (
                             <div className="px-4">
                                 <div 
                                     className={`p-5 spring-transform ${c.cardClass} flex items-center justify-between gap-4`} 
@@ -1248,12 +1254,27 @@
                                                 { id: 'next', label: 'Następny Up', icon: 'clock' },
                                                 { id: 'tpm', label: 'TPM Stanowiska', icon: 'clipboard-check' },
                                                 { id: 'baseConfig', label: 'Baza Danych', icon: 'database' }
-                                            ].map(w => (
-                                                <button key={w.id} onClick={() => setWidgetsConfig(prev => ({ ...prev, [w.id]: !prev[w.id] }))} className={`py-4 px-5 ${c.innerRadius} text-[10px] font-black transition-all flex flex-col gap-2 border ${widgetsConfig[w.id] ? 'text-white shadow-xl border-opacity-50' : 'border-transparent opacity-40'}`} style={{ backgroundColor: widgetsConfig[w.id] ? c.accent : c.inputBg, borderColor: widgetsConfig[w.id] ? c.text : 'transparent' }}>
-                                                    <Icon name={w.icon} size={16}/>
-                                                    {w.label}
-                                                </button>
-                                            ))}
+                                            ].map(w => {
+                                                const isAct = Boolean(widgetsConfig[w.id]);
+                                                return (
+                                                    <button 
+                                                        key={w.id} 
+                                                        onClick={() => {
+                                                            hapticAction('light');
+                                                            setWidgetsConfig(prev => {
+                                                                const updated = { ...prev, [w.id]: !Boolean(prev[w.id]) };
+                                                                try { localStorage.setItem('widgetsConfig', JSON.stringify(updated)); } catch(e) {}
+                                                                return updated;
+                                                            });
+                                                        }} 
+                                                        className={`py-4 px-5 ${c.innerRadius} text-[10px] font-black transition-all flex flex-col gap-2 border ${isAct ? 'text-white shadow-xl border-opacity-50' : 'border-transparent opacity-40'}`} 
+                                                        style={{ backgroundColor: isAct ? c.accent : c.inputBg, borderColor: isAct ? c.text : 'transparent' }}
+                                                    >
+                                                        <Icon name={w.icon} size={16}/>
+                                                        {w.label}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
                                     </section>
 
