@@ -214,8 +214,8 @@
             const [widgetsConfig, setWidgetsConfig] = useState(() => {
                 try {
                     const saved = localStorage.getItem('widgetsConfig');
-                    return saved ? JSON.parse(saved) : { progress: true, live: true, total: true, next: true, tpm: true, baseConfig: true };
-                } catch(e) { return { progress: true, live: true, total: true, next: true, tpm: true, baseConfig: true }; }
+                    return saved ? JSON.parse(saved) : { progress: true, live: true, total: true, next: true, tpm: true, paramsGrid: true, baseConfig: true };
+                } catch(e) { return { progress: true, live: true, total: true, next: true, tpm: true, paramsGrid: true, baseConfig: true }; }
             });
 
             const [anchorTime, setAnchorTime] = useState(() => {
@@ -236,6 +236,7 @@
 
             const [showSettings, setShowSettings] = useState(false);
             const [showTpmModal, setShowTpmModal] = useState(false);
+            const [infoModalParam, setInfoModalParam] = useState(null);
             const [now, setNow] = useState(new Date());
             const [expandedIndex, setExpandedIndex] = useState(null);
             const [isScrolled, setIsScrolled] = useState(false);
@@ -903,6 +904,67 @@
                             </div>
                         )}
 
+                        {/* WIDŻETY PARAMETRÓW BAZOWYCH Z INFO */}
+                        {widgetsConfig.paramsGrid !== false && (
+                            <div className="px-4 space-y-2">
+                                <div className="flex justify-between items-center px-1">
+                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-30">Parametry Pracy (Kliknij kafelek)</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {[
+                                        { 
+                                            id: 'mat', 
+                                            label: 'MAT (Przed)', 
+                                            value: baseMat ? `${baseMat} kg` : '-- kg', 
+                                            icon: 'package', 
+                                            desc: 'Aktualna ilość materiału w mieszalniku przed rozpoczęciem zrzutu.',
+                                            fullTitle: 'Ilość przed zrzutem (MAT)'
+                                        },
+                                        { 
+                                            id: 'matAfter', 
+                                            label: 'PO (Po zrzucie)', 
+                                            value: baseMatAfter ? `${baseMatAfter} kg` : '-- kg', 
+                                            icon: 'plus-circle', 
+                                            desc: 'Ilość materiału w mieszalniku po zakończeniu zrzutu.',
+                                            fullTitle: 'Ilość po zrzucie (PO)'
+                                        },
+                                        { 
+                                            id: 'drop', 
+                                            label: 'ZRZUT (Próg)', 
+                                            value: baseDrop ? `${baseDrop} kg` : '-- kg', 
+                                            icon: 'arrow-down-circle', 
+                                            desc: 'Przy jakiej ilości materiału w mieszalniku zaczyna się zrzut.',
+                                            fullTitle: 'Próg wyzwolenia zrzutu'
+                                        },
+                                        { 
+                                            id: 'spd', 
+                                            label: 'PRĘDKOŚĆ', 
+                                            value: baseSpd ? `${baseSpd} kg/h` : '-- kg/h', 
+                                            icon: 'zap', 
+                                            desc: 'Aktualna prędkość zużywania materiału przez maszynę na godzinę.',
+                                            fullTitle: 'Prędkość linii produkcyjnej'
+                                        }
+                                    ].map(p => (
+                                        <button
+                                            key={p.id}
+                                            onClick={() => { hapticAction('light'); setInfoModalParam(p); }}
+                                            className={`p-4 ${c.cardClass} flex flex-col justify-between text-left transition-all squash-bounce active:scale-95 group border`}
+                                            style={{ backgroundColor: c.card, borderColor: c.border }}
+                                        >
+                                            <div className="flex justify-between items-center w-full">
+                                                <Icon name={p.icon} size={18} style={{ color: c.accent }} />
+                                                <Icon name="info" size={13} className="opacity-30 group-hover:opacity-100 transition-opacity" />
+                                            </div>
+                                            <div className="mt-3">
+                                                <span className="text-[9px] font-black uppercase opacity-40 block tracking-wider">{p.label}</span>
+                                                <span className="text-xl font-black tracking-tight tabular-nums mt-0.5 block">{p.value}</span>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* KONFIGURACJA BAZOWA */}
                         {widgetsConfig.baseConfig && (
                             <div className={`p-7 mx-4 ${c.cardClass}`} style={{ backgroundColor: c.card, borderColor: c.border }}>
@@ -1126,6 +1188,47 @@
                         </div>
                     )}
 
+                    {/* OKNO INFORMACYJNE PARAMETRU (MAT, PO, ZRZUT, PRĘDKOŚĆ) */}
+                    {infoModalParam && (
+                        <div 
+                            className={`fixed inset-0 z-[110] flex items-center justify-center bg-black/75 animate-in fade-in duration-300 px-4 ${c.blur}`}
+                            onClick={() => setInfoModalParam(null)}
+                        >
+                            <div 
+                                className={`w-full max-w-sm p-7 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 border ${c.cardClass}`}
+                                style={{ backgroundColor: modalInner, borderColor: c.border }}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-md" style={{ backgroundColor: c.inputBg, color: c.accent }}>
+                                        <Icon name={infoModalParam.icon} size={24} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-black tracking-tight">{infoModalParam.fullTitle}</h3>
+                                        <span className="text-sm font-black tracking-tight" style={{ color: c.accent }}>
+                                            Aktualnie: {infoModalParam.value}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className={`p-4 ${c.innerRadius} space-y-2`} style={{ backgroundColor: c.inputBg }}>
+                                    <span className="text-[10px] font-black uppercase tracking-wider opacity-40 block">Do czego służy ten parametr?</span>
+                                    <p className="text-xs opacity-80 leading-relaxed font-medium">
+                                        {infoModalParam.desc}
+                                    </p>
+                                </div>
+
+                                <button
+                                    onClick={() => setInfoModalParam(null)}
+                                    className={`w-full py-4 ${c.btnRadius} font-black text-xs uppercase tracking-wider text-white shadow-xl active:scale-95 transition-all squash-bounce`}
+                                    style={{ backgroundColor: c.accent }}
+                                >
+                                    Rozumiem
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* MODAL USTAWIEŃ Z MOŻLIWOŚCIĄ KLIKNIĘCIA W TŁO BY ZAMKNĄĆ */}
                     {showSettings && (
                         <div 
@@ -1153,6 +1256,7 @@
                                                 { id: 'total', label: 'Zrzuty do końca', icon: 'layers' },
                                                 { id: 'next', label: 'Następny Up', icon: 'clock' },
                                                 { id: 'tpm', label: 'TPM Stanowiska', icon: 'clipboard-check' },
+                                                { id: 'paramsGrid', label: 'Karty Parametrów', icon: 'sliders' },
                                                 { id: 'baseConfig', label: 'Baza Danych', icon: 'database' }
                                             ].map(w => (
                                                 <button key={w.id} onClick={() => setWidgetsConfig(prev => ({ ...prev, [w.id]: !prev[w.id] }))} className={`py-4 px-5 ${c.innerRadius} text-[10px] font-black transition-all flex flex-col gap-2 border ${widgetsConfig[w.id] ? 'text-white shadow-xl border-opacity-50' : 'border-transparent opacity-40'}`} style={{ backgroundColor: widgetsConfig[w.id] ? c.accent : c.inputBg, borderColor: widgetsConfig[w.id] ? c.text : 'transparent' }}>
