@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Zrzut v4.7.0</title>
+    <title>Zrzut v4.8.0</title>
     
     <!-- DYNAMICZNY MANIFEST PWA -->
     <link rel="manifest" id="dynamic-manifest">
@@ -25,8 +25,10 @@
             const savedDarkMode = localStorage.getItem('darkMode');
             if (savedDarkMode === 'false') {
                 document.documentElement.classList.remove('dark');
+                document.documentElement.style.backgroundColor = '#f2f2fa';
             } else {
                 document.documentElement.classList.add('dark');
+                document.documentElement.style.backgroundColor = '#0f0f17';
             }
         } catch (e) {}
     </script>
@@ -34,7 +36,26 @@
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
-        body { font-family: 'Inter', sans-serif; margin: 0; overflow-x: hidden; transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1); overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; }
+        html, body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100%;
+            overflow-x: hidden;
+            overscroll-behavior: none;
+            overscroll-behavior-y: none;
+            -webkit-overflow-scrolling: touch;
+            -webkit-tap-highlight-color: transparent;
+            transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        html.dark, body.dark {
+            background-color: #0f0f17;
+            color-scheme: dark;
+        }
+        html:not(.dark), body:not(.dark) {
+            background-color: #f2f2fa;
+            color-scheme: light;
+        }
         
         /* BLUR I SZKŁO */
         .ios-blur { backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
@@ -155,7 +176,7 @@
         };
 
         function App() {
-            const VERSION = "4.7.0";
+            const VERSION = "4.8.0";
 
             const getInitial = (key, fallback) => {
                 try {
@@ -242,6 +263,7 @@
 
             const [showSettings, setShowSettings] = useState(false);
             const [showTpmModal, setShowTpmModal] = useState(false);
+            const [showChangelog, setShowChangelog] = useState(false);
             const [infoModalParam, setInfoModalParam] = useState(null);
             const [now, setNow] = useState(new Date());
             const [expandedIndex, setExpandedIndex] = useState(null);
@@ -395,7 +417,7 @@
                 window.addEventListener('deviceorientation', handleOrientation);
             };
 
-            const adjustRecycling = (index, sign) => {
+            const adjustRecycling = (index, delta) => {
                 hapticAction('medium');
                 AudioEngine.playThud();
                 setOverrides(prev => {
@@ -404,10 +426,17 @@
                     if (isNaN(currentMat)) currentMat = 0;
                     if (index > 0 && !isNaN(parseFloat(baseMatAfter))) currentMat = parseFloat(baseMatAfter);
                     if (ovr.mat !== undefined && ovr.mat !== '') currentMat = parseFloat(ovr.mat);
-                    const step = 70; 
-                    const newMat = Math.max(0, currentMat + (sign * step));
+                    const newMat = Math.max(0, currentMat + delta);
                     return { ...prev, [index]: { ...ovr, mat: parseFloat(newMat.toFixed(2)).toString() } };
                 });
+            };
+
+            const handleCloseChangelog = () => {
+                hapticAction('light');
+                try {
+                    localStorage.setItem('last_seen_version', VERSION);
+                } catch(e) {}
+                setShowChangelog(false);
             };
 
             const hardReset = () => {
@@ -541,11 +570,15 @@
                 const metaThemeColor = document.getElementById('meta-theme-color');
                 if (isDarkMode) {
                     document.documentElement.classList.add('dark');
+                    document.body.classList.add('dark');
                     if(metaThemeColor) metaThemeColor.setAttribute('content', c.bg);
                 } else {
                     document.documentElement.classList.remove('dark');
+                    document.body.classList.remove('dark');
                     if(metaThemeColor) metaThemeColor.setAttribute('content', c.bg);
                 }
+                document.documentElement.style.backgroundColor = c.bg;
+                document.body.style.backgroundColor = c.bg;
             }, [baseMat, baseMatAfter, baseDrop, baseSpd, baseDur, firstDropInProgress, isDarkMode, theme, osStyle, hapticsEnabled, anchorTime, overrides, widgetsConfig, accumulatedPause, currentPauseStart, c]);
 
             useEffect(() => {
@@ -556,6 +589,13 @@
             useEffect(() => {
                 const loader = document.getElementById('loader');
                 if (loader) setTimeout(() => { loader.style.opacity = '0'; setTimeout(() => loader.style.display = 'none', 500); }, 500);
+
+                try {
+                    const lastSeen = localStorage.getItem('last_seen_version');
+                    if (lastSeen !== VERSION) {
+                        setTimeout(() => setShowChangelog(true), 600);
+                    }
+                } catch(e) {}
             }, []);
 
             const schedule = useMemo(() => {
@@ -1106,9 +1146,34 @@
                                                         </div>
                                                     ))}
                                                 </div>
-                                                <div className="flex gap-2">
-                                                    <button onClick={() => adjustRecycling(i, 1)} className={`flex-1 py-4 font-black text-[10px] uppercase bg-emerald-500/15 text-emerald-500 transition-all active:scale-95 shadow-sm ${c.btnRadius}`}>+ 70 kg</button>
-                                                    <button onClick={() => adjustRecycling(i, -1)} className={`flex-1 py-4 font-black text-[10px] uppercase bg-red-500/15 text-red-500 transition-all active:scale-95 shadow-sm ${c.btnRadius}`}>- 70 kg</button>
+                                                <div className="space-y-2">
+                                                    <span className="text-[9px] font-black uppercase tracking-wider opacity-40 block">Korekta Aomodori (±75 kg / ±105 kg)</span>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <button 
+                                                            onClick={() => adjustRecycling(i, 75)} 
+                                                            className={`py-3.5 px-2 font-black text-[10px] uppercase bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/25 transition-all active:scale-95 shadow-sm flex items-center justify-center gap-1.5 ${c.btnRadius}`}
+                                                        >
+                                                            <Icon name="plus" size={12} /> 75 kg Aomodori
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => adjustRecycling(i, -75)} 
+                                                            className={`py-3.5 px-2 font-black text-[10px] uppercase bg-red-500/15 text-red-500 hover:bg-red-500/25 transition-all active:scale-95 shadow-sm flex items-center justify-center gap-1.5 ${c.btnRadius}`}
+                                                        >
+                                                            <Icon name="minus" size={12} /> 75 kg Aomodori
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => adjustRecycling(i, 105)} 
+                                                            className={`py-3.5 px-2 font-black text-[10px] uppercase bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25 transition-all active:scale-95 shadow-sm flex items-center justify-center gap-1.5 ${c.btnRadius}`}
+                                                        >
+                                                            <Icon name="plus" size={12} /> 105 kg Aomodori
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => adjustRecycling(i, -105)} 
+                                                            className={`py-3.5 px-2 font-black text-[10px] uppercase bg-rose-500/15 text-rose-400 hover:bg-rose-500/25 transition-all active:scale-95 shadow-sm flex items-center justify-center gap-1.5 ${c.btnRadius}`}
+                                                        >
+                                                            <Icon name="minus" size={12} /> 105 kg Aomodori
+                                                        </button>
+                                                    </div>
                                                 </div>
                                                 {overrides[i] && Object.keys(overrides[i]).length > 0 && (
                                                     <button 
@@ -1226,6 +1291,85 @@
                         </div>
                     )}
 
+                    {/* OKNO NOWOŚCI W WERSJI (CHANGELOG POPUP) */}
+                    {showChangelog && (
+                        <div 
+                            className={`fixed inset-0 z-[120] flex items-center justify-center bg-black/80 animate-in fade-in duration-300 px-4 ${c.blur}`}
+                            onClick={handleCloseChangelog}
+                        >
+                            <div 
+                                className={`w-full max-w-sm p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 border ${c.cardClass} max-h-[90vh] overflow-y-auto no-scrollbar`}
+                                style={{ backgroundColor: modalInner, borderColor: c.border }}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="flex items-center justify-between border-b pb-4" style={{ borderColor: c.border }}>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-md bg-emerald-500 text-white">
+                                            <Icon name="sparkles" size={20} />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-lg font-black tracking-tight leading-tight">Co nowego w Zrzut?</h3>
+                                            <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: c.accent }}>Wersja v{VERSION}</span>
+                                        </div>
+                                    </div>
+                                    <button onClick={handleCloseChangelog} className="p-2 rounded-full bg-black/10 dark:bg-white/10 hover:scale-110 transition-transform">
+                                        <Icon name="x" size={20} />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-3 text-left">
+                                    <div className={`p-3.5 ${c.innerRadius} space-y-1`} style={{ backgroundColor: c.inputBg }}>
+                                        <div className="flex items-center gap-2">
+                                            <Icon name="refresh-cw" size={14} className="text-emerald-500" />
+                                            <span className="text-[11px] font-black uppercase tracking-wider">Korekta Aomodori (75 kg i 105 kg)</span>
+                                        </div>
+                                        <p className="text-[11px] opacity-70 leading-relaxed font-medium">
+                                            W edycji każdego zrzutu dodano szybkie przyciski korekty Aomodori: <strong>±75 kg</strong> oraz <strong>±105 kg</strong>.
+                                        </p>
+                                    </div>
+
+                                    <div className={`p-3.5 ${c.innerRadius} space-y-1`} style={{ backgroundColor: c.inputBg }}>
+                                        <div className="flex items-center gap-2">
+                                            <Icon name="smartphone" size={14} style={{ color: c.accent }} />
+                                            <span className="text-[11px] font-black uppercase tracking-wider">Brak białych pasów (Overscroll)</span>
+                                        </div>
+                                        <p className="text-[11px] opacity-70 leading-relaxed font-medium">
+                                            Zablokowano elastyczne odciąganie tła na telefonie – tło aplikacji jest zawsze jednolite i dopasowane.
+                                        </p>
+                                    </div>
+
+                                    <div className={`p-3.5 ${c.innerRadius} space-y-1`} style={{ backgroundColor: c.inputBg }}>
+                                        <div className="flex items-center gap-2">
+                                            <Icon name="clipboard-check" size={14} className="text-emerald-400" />
+                                            <span className="text-[11px] font-black uppercase tracking-wider">Moduł TPM Stanowiska</span>
+                                        </div>
+                                        <p className="text-[11px] opacity-70 leading-relaxed font-medium">
+                                            Potwierdzenie codziennej obsługi i inspekcji stanowiska z bezpiecznym oknem zatwierdzenia.
+                                        </p>
+                                    </div>
+
+                                    <div className={`p-3.5 ${c.innerRadius} space-y-1`} style={{ backgroundColor: c.inputBg }}>
+                                        <div className="flex items-center gap-2">
+                                            <Icon name="info" size={14} className="text-amber-400" />
+                                            <span className="text-[11px] font-black uppercase tracking-wider">Opisy parametrów w Bazie</span>
+                                        </div>
+                                        <p className="text-[11px] opacity-70 leading-relaxed font-medium">
+                                            Kliknięcie w etykietę pola (Mat, Po, Zrzut, Prędkość, Czas) wyświetla wyjaśnienie jego roli.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={handleCloseChangelog}
+                                    className={`w-full py-4 ${c.btnRadius} font-black text-xs uppercase tracking-wider text-white shadow-xl active:scale-95 transition-all squash-bounce flex items-center justify-center gap-2`}
+                                    style={{ backgroundColor: c.accent }}
+                                >
+                                    <Icon name="check" size={16} /> Rozpocznij pracę (v{VERSION})
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* MODAL USTAWIEŃ Z MOŻLIWOŚCIĄ KLIKNIĘCIA W TŁO BY ZAMKNĄĆ */}
                     {showSettings && (
                         <div 
@@ -1300,6 +1444,13 @@
                                     <section className="space-y-4 pt-6 border-t" style={{ borderColor: c.border }}>
                                         <button onClick={() => { setHapticsEnabled(!hapticsEnabled); hapticAction('light'); }} className={`w-full py-5 px-6 ${c.btnRadius} font-black text-[11px] uppercase tracking-widest flex justify-between items-center transition-all ${hapticsEnabled ? 'text-white shadow-lg' : 'opacity-50'}`} style={{ backgroundColor: hapticsEnabled ? c.accent : c.inputBg }}>
                                             Reakcja haptyczna <span>{hapticsEnabled ? 'WŁ' : 'WYŁ'}</span>
+                                        </button>
+                                        <button 
+                                            onClick={() => { setShowSettings(false); setShowChangelog(true); }} 
+                                            className={`w-full py-4 px-6 ${c.btnRadius} font-black text-[11px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all opacity-80 hover:opacity-100`}
+                                            style={{ backgroundColor: c.inputBg }}
+                                        >
+                                            <Icon name="sparkles" size={15} style={{ color: c.accent }} /> Co nowego w wersji v{VERSION}
                                         </button>
                                         <button onClick={hardReset} className={`w-full py-5 ${c.btnRadius} bg-red-500/10 text-red-500 font-black text-[11px] uppercase tracking-[0.3em]`}>Twardy Reset Systemu</button>
                                     </section>
