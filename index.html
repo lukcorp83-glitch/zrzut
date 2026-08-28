@@ -36,25 +36,27 @@
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
-        html, body {
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 0;
-            min-height: 100%;
-            overflow-x: hidden;
-            overscroll-behavior: none;
-            overscroll-behavior-y: none;
-            -webkit-overflow-scrolling: touch;
-            -webkit-tap-highlight-color: transparent;
-            transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        html {
+            background-color: #0f0f17;
+            -webkit-text-size-adjust: 100%;
         }
-        html.dark, body.dark {
+        html.dark {
             background-color: #0f0f17;
             color-scheme: dark;
         }
-        html:not(.dark), body:not(.dark) {
+        html:not(.dark) {
             background-color: #f2f2fa;
             color-scheme: light;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            -webkit-tap-highlight-color: transparent;
+            transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
         /* BLUR I SZKŁO */
@@ -539,16 +541,11 @@
 
             useEffect(() => {
                 const handleScroll = () => {
-                    const currentScroll = window.scrollY;
-                    setIsScrolled(currentScroll > 15);
-                    if (Math.abs(currentScroll - lastScrollY.current) > 120) {
-                        hapticAction('tick');
-                        lastScrollY.current = currentScroll;
-                    }
+                    setIsScrolled(window.scrollY > 15);
                 };
                 window.addEventListener('scroll', handleScroll, { passive: true });
                 return () => window.removeEventListener('scroll', handleScroll);
-            }, [hapticsEnabled]); 
+            }, []); 
 
             useEffect(() => {
                 localStorage.setItem('baseMat', baseMat);
