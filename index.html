@@ -248,9 +248,8 @@
             });
 
             const [anchorTime, setAnchorTime] = useState(() => {
-                const saved = parseInt(getInitial('anchorTime', Date.now().toString()));
-                if (isNaN(saved) || Date.now() - saved > 14 * 60 * 60 * 1000) return Date.now();
-                return saved;
+                const saved = parseInt(getInitial('anchorTime', '0'));
+                return isNaN(saved) ? 0 : saved;
             });
             
             const [overrides, setOverrides] = useState(() => {
@@ -794,16 +793,28 @@
                                             <h2 className="text-5xl font-black tracking-tighter tabular-nums leading-none opacity-30 my-2">
                                                 --:--
                                             </h2>
-                                            <p className="text-[11px] font-medium opacity-60 mt-2 max-w-[260px]">
-                                                Parametry w bazie są zapamiętane. Kliknij poniżej, aby rozpocząć odliczanie.
+                                            <p className="text-[11px] font-medium opacity-60 mt-2 max-w-[280px]">
+                                                Aplikacja oczekuje na dane. Wprowadź parametry w Bazie Danych i zatwierdź lub wystartuj od nowa.
                                             </p>
-                                            <button 
-                                                onClick={syncAnchorToNow}
-                                                className={`mt-5 py-4 px-7 ${c.btnRadius} font-black text-[11px] text-white uppercase tracking-widest shadow-xl squash-bounce active:scale-95 transition-all`}
-                                                style={{ backgroundColor: c.accent }}
-                                            >
-                                                Rozpocznij Nową Zmianę
-                                            </button>
+                                            <div className="flex flex-col gap-2.5 w-full mt-5">
+                                                <button 
+                                                    onClick={() => {
+                                                        const dbEl = document.getElementById('baza-danych-section');
+                                                        if (dbEl) dbEl.scrollIntoView({ behavior: 'smooth' });
+                                                    }}
+                                                    className={`w-full py-4 px-6 ${c.btnRadius} font-black text-[11px] text-white uppercase tracking-widest shadow-xl squash-bounce active:scale-95 transition-all flex items-center justify-center gap-2`}
+                                                    style={{ backgroundColor: c.accent }}
+                                                >
+                                                    <Icon name="database" size={14} /> Wprowadź dane (Baza Danych)
+                                                </button>
+                                                <button 
+                                                    onClick={syncAnchorToNow}
+                                                    className={`w-full py-3 px-4 ${c.btnRadius} font-bold text-[10px] uppercase tracking-wider opacity-60 hover:opacity-100 transition-all`}
+                                                    style={{ backgroundColor: c.inputBg }}
+                                                >
+                                                    Wystartuj ze starymi danymi
+                                                </button>
+                                            </div>
                                         </div>
                                     ) : (
                                         <div className="flex flex-col items-center z-10 relative w-full">
@@ -949,7 +960,7 @@
 
                         {/* KONFIGURACJA BAZOWA */}
                         {widgetsConfig.baseConfig && (
-                            <div className={`p-7 mx-4 ${c.cardClass}`} style={{ backgroundColor: c.card, borderColor: c.border }}>
+                            <div id="baza-danych-section" className={`p-7 mx-4 ${c.cardClass}`} style={{ backgroundColor: c.card, borderColor: c.border }}>
                                 <div className="flex justify-between items-center mb-6 px-1">
                                     <div className="flex items-center gap-2">
                                         <h2 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-30 flex items-center gap-2">
